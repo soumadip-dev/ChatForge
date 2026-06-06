@@ -1,9 +1,9 @@
-import { puzzles } from '../data/puzzles';
 import type { Puzzle } from '../types';
 
 type PuzzleCardProps = {
   puzzle: Puzzle;
-  currentPuzzle: number;
+  currentPuzzleId: number;
+  chapterPuzzles: Puzzle[];
   completedPuzzles: number[];
   showSimplified: boolean;
   escapeUnlocked: boolean;
@@ -12,7 +12,8 @@ type PuzzleCardProps = {
 
 function PuzzleCard({
   puzzle,
-  currentPuzzle,
+  currentPuzzleId,
+  chapterPuzzles,
   completedPuzzles,
   showSimplified,
   escapeUnlocked,
@@ -54,9 +55,9 @@ function PuzzleCard({
 
       <div className="mt-8">
         <div className="mb-4 grid grid-cols-4 gap-2">
-          {puzzles.map((p, index) => {
+          {chapterPuzzles.map(p => {
             const solved = completedPuzzles.includes(p.id);
-            const active = index === currentPuzzle;
+            const active = p.id === currentPuzzleId;
 
             return (
               <div

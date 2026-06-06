@@ -591,3 +591,44 @@ export const puzzles: Puzzle[] = [
     practiceProblem: 'Log 10 - 4 / 2',
   },
 ];
+
+export const chapters = [
+  {
+    id: 1,
+    title: 'Variables',
+    description: 'Declare values, choose the right keyword, and store basic data.',
+    puzzleIds: [1, 2, 3, 4, 5],
+  },
+  {
+    id: 2,
+    title: 'Functions',
+    description: 'Solve the next set of terminal locks before arrays unlock.',
+    puzzleIds: [6, 7, 8, 9, 12, 13, 14, 15],
+  },
+  {
+    id: 3,
+    title: 'Arrays',
+    description: 'Work through ordered collections and sequence-based challenges.',
+    puzzleIds: [10, 16, 17, 18, 19, 20],
+  },
+  {
+    id: 4,
+    title: 'Objects',
+    description: 'Finish the final object and logic locks to escape.',
+    puzzleIds: [11, 21, 22, 23],
+  },
+] as const;
+
+const puzzleById = new Map(puzzles.map(puzzle => [puzzle.id, puzzle]));
+
+export const chapterPuzzles = chapters.flatMap(chapter =>
+  chapter.puzzleIds.map(puzzleId => {
+    const puzzle = puzzleById.get(puzzleId);
+
+    if (!puzzle) {
+      throw new Error(`Missing puzzle ${puzzleId} for chapter ${chapter.id}`);
+    }
+
+    return puzzle;
+  })
+);

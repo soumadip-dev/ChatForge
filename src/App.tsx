@@ -7,11 +7,11 @@ import ProgressBar from './components/ProgressBar';
 import PuzzleCard from './components/PuzzleCard';
 import ResumeModal from './components/ResumeModal';
 import Timer from './components/Timer';
-import { puzzles } from './data/puzzles';
+import { chapterPuzzles, chapters } from './data/puzzles';
 import type { Puzzle } from './types';
 
 const STORAGE_KEY = 'escapeRoomProgress';
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const SOUND_KEY = 'escapeRoomSoundEnabled';
 const MAX_OUTPUT_LENGTH = 5000;
 const MAX_LOG_LINES = 100;
@@ -30,12 +30,14 @@ type SavedProgress = {
   showSimplified: boolean;
   isSolutionRevealed?: boolean;
   escapeUnlocked?: boolean;
+  selectedChapterId?: number;
   completedPuzzles: number[];
   solvedWithAssist?: number[];
   timestamp: number;
 };
 
 type RunnerMessage = { type: 'success'; output: string } | { type: 'error'; error: string };
+type ViewMode = 'chapters' | 'solving';
 
 const sounds = {
   success: 'https://s3.amazonaws.com/freecodecamp/drums/Chord_1.mp3',
@@ -64,9 +66,13 @@ const loadProgress = (): SavedProgress | null => {
     const isValidPuzzle =
       Number.isInteger(progress.currentPuzzle) &&
       progress.currentPuzzle >= 0 &&
-      progress.currentPuzzle < puzzles.length;
+      progress.currentPuzzle < chapterPuzzles.length;
 
-    if (!isValidPuzzle || !Array.isArray(progress.completedPuzzles)) {
+    if (
+      progress.version !== STORAGE_VERSION ||
+      !isValidPuzzle ||
+      !Array.isArray(progress.completedPuzzles)
+    ) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
@@ -84,6 +90,15 @@ const loadSoundPreference = () => {
   } catch {
     return true;
   }
+};
+
+const findChapterByPuzzleId = (puzzleId: number) =>
+  chapters.find(chapter => (chapter.puzzleIds as readonly number[]).includes(puzzleId)) ??
+  chapters[0];
+
+const getRouteChapterId = () => {
+  const match = window.location.hash.match(/^#\/chapter\/(\d+)$/);
+  return match ? Number(match[1]) : null;
 };
 
 const buildWorkerSource = (userCode: string, puzzle: Puzzle) => `
@@ -126,8 +141,11 @@ const buildWorkerSource = (userCode: string, puzzle: Puzzle) => `
 
 function App() {
   const savedProgress = useMemo(() => loadProgress(), []);
+  const initialRouteChapterId = useMemo(() => getRouteChapterId(), []);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialRouteChapterId ? 'solving' : 'chapters');
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
-  const [userCode, setUserCode] = useState(puzzles[0].starterCode);
+  const [selectedChapterId, setSelectedChapterId] = useState(initialRouteChapterId ?? 1);
+  const [userCode, setUserCode] = useState(chapterPuzzles[0].starterCode);
   const [output, setOutput] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [attemptsTotal, setAttemptsTotal] = useState(0);
@@ -147,24 +165,42 @@ function App() {
   const [escapeUnlocked, setEscapeUnlocked] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
-  const puzzle = puzzles[currentPuzzle];
+  const puzzle = chapterPuzzles[currentPuzzle];
+  const activeChapter = useMemo(() => findChapterByPuzzleId(puzzle.id), [puzzle.id]);
+  const selectedChapter = useMemo(
+    () => chapters.find(chapter => chapter.id === selectedChapterId) ?? activeChapter,
+    [activeChapter, selectedChapterId]
+  );
+  const selectedChapterPuzzles = useMemo(
+    () =>
+      selectedChapter.puzzleIds
+        .map(puzzleId => chapterPuzzles.find(candidate => candidate.id === puzzleId))
+        .filter((candidate): candidate is Puzzle => Boolean(candidate)),
+    [selectedChapter]
+  );
+  const currentChapterPuzzle = selectedChapterPuzzles.findIndex(candidate => candidate.id === puzzle.id);
+  const displayedPuzzle =
+    currentChapterPuzzle >= 0 ? puzzle : selectedChapterPuzzles[0] ?? chapterPuzzles[0];
+  const displayedPuzzleIndex = chapterPuzzles.findIndex(candidate => candidate.id === displayedPuzzle.id);
+  const displayedChapterPuzzleNumber =
+    selectedChapterPuzzles.findIndex(candidate => candidate.id === displayedPuzzle.id) + 1;
   const activePuzzle = useMemo<Puzzle>(
     () =>
       showSimplified
         ? {
-            ...puzzle,
-            expectedOutput: puzzle.simplifiedExpectedOutput,
-            validationCode: puzzle.simplifiedValidationCode ?? '',
+            ...displayedPuzzle,
+            expectedOutput: displayedPuzzle.simplifiedExpectedOutput,
+            validationCode: displayedPuzzle.simplifiedValidationCode ?? '',
           }
-        : puzzle,
-    [puzzle, showSimplified]
+        : displayedPuzzle,
+    [displayedPuzzle, showSimplified]
   );
 
   const completionData = useMemo(
     () => ({
       timeTaken: formatTime(timer),
       hintsUsed: totalHintsUsed,
-      puzzlesSolved: puzzles.length,
+      puzzlesSolved: chapterPuzzles.length,
       attemptsTotal,
       assistedSolves: solvedWithAssist.length,
       shareText: `I escaped the JavaScript Fundamentals Escape Room in ${formatTime(
@@ -173,6 +209,43 @@ function App() {
     }),
     [attemptsTotal, solvedWithAssist.length, timer, totalHintsUsed]
   );
+
+  const chapterStatuses = useMemo(
+    () =>
+      chapters.map((chapter, index) => {
+        const solvedCount = chapter.puzzleIds.filter(id => completedPuzzles.includes(id)).length;
+        const complete = solvedCount === chapter.puzzleIds.length;
+        const unlocked =
+          index === 0 ||
+          chapters
+            .slice(0, index)
+            .every(previousChapter =>
+              previousChapter.puzzleIds.every(id => completedPuzzles.includes(id))
+            );
+
+        return {
+          ...chapter,
+          complete,
+          solvedCount,
+          unlocked,
+        };
+      }),
+    [completedPuzzles]
+  );
+
+  const puzzleLabels = selectedChapterPuzzles.map((candidate, index) => {
+    const solved = completedPuzzles.includes(candidate.id);
+    const previousSolved =
+      index === 0 || completedPuzzles.includes(selectedChapterPuzzles[index - 1].id);
+
+    return {
+      id: candidate.id,
+      number: index + 1,
+      solved,
+      active: candidate.id === displayedPuzzle.id,
+      available: solved || previousSolved,
+    };
+  });
 
   const playSound = useCallback(
     (name: keyof typeof sounds) => {
@@ -189,7 +262,8 @@ function App() {
 
   const resetPuzzleState = useCallback((nextIndex: number) => {
     setCurrentPuzzle(nextIndex);
-    setUserCode(puzzles[nextIndex].starterCode);
+    setSelectedChapterId(findChapterByPuzzleId(chapterPuzzles[nextIndex].id).id);
+    setUserCode(chapterPuzzles[nextIndex].starterCode);
     setOutput('');
     setError('');
     setAttempts(0);
@@ -218,6 +292,7 @@ function App() {
       showSimplified,
       isSolutionRevealed,
       escapeUnlocked,
+      selectedChapterId,
       completedPuzzles,
       solvedWithAssist,
       timestamp: Date.now(),
@@ -235,6 +310,7 @@ function App() {
     isCompleted,
     isSolutionRevealed,
     output,
+    selectedChapterId,
     showSimplified,
     solvedWithAssist,
     timer,
@@ -271,6 +347,24 @@ function App() {
     }
   }, [soundEnabled]);
 
+  useEffect(() => {
+    const syncRoute = () => {
+      const routeChapterId = getRouteChapterId();
+      setViewMode(routeChapterId ? 'solving' : 'chapters');
+
+      if (routeChapterId && chapters.some(chapter => chapter.id === routeChapterId)) {
+        setSelectedChapterId(routeChapterId);
+      }
+    };
+
+    window.addEventListener('hashchange', syncRoute);
+    window.addEventListener('popstate', syncRoute);
+    return () => {
+      window.removeEventListener('hashchange', syncRoute);
+      window.removeEventListener('popstate', syncRoute);
+    };
+  }, []);
+
   useEffect(
     () => () => {
       workerRef.current?.terminate();
@@ -284,7 +378,11 @@ function App() {
     }
 
     setCurrentPuzzle(resumeProgress.currentPuzzle);
-    setUserCode(resumeProgress.userCode ?? puzzles[resumeProgress.currentPuzzle].starterCode);
+    setSelectedChapterId(
+      resumeProgress.selectedChapterId ??
+        findChapterByPuzzleId(chapterPuzzles[resumeProgress.currentPuzzle].id).id
+    );
+    setUserCode(resumeProgress.userCode ?? chapterPuzzles[resumeProgress.currentPuzzle].starterCode);
     setAttempts(resumeProgress.attempts);
     setAttemptsTotal(resumeProgress.attemptsTotal || resumeProgress.attempts);
     setHintsUsed(resumeProgress.hintsUsed);
@@ -298,6 +396,11 @@ function App() {
     setOutput(resumeProgress.output ?? '');
     setError(resumeProgress.error ?? '');
     setShowResumeModal(false);
+    setViewMode('solving');
+    window.history.pushState(null, '', `#/chapter/${
+      resumeProgress.selectedChapterId ??
+      findChapterByPuzzleId(chapterPuzzles[resumeProgress.currentPuzzle].id).id
+    }`);
   };
 
   const startNewGame = () => {
@@ -317,6 +420,50 @@ function App() {
     setEscapeUnlocked(false);
     setIsCompleted(false);
     resetPuzzleState(0);
+    setViewMode('chapters');
+    window.history.pushState(null, '', '#/');
+  };
+
+  const selectPuzzleById = (puzzleId: number) => {
+    const nextIndex = chapterPuzzles.findIndex(candidate => candidate.id === puzzleId);
+
+    if (nextIndex < 0) {
+      return;
+    }
+
+    resetPuzzleState(nextIndex);
+  };
+
+  const selectChapter = (chapterId: number) => {
+    const status = chapterStatuses.find(chapter => chapter.id === chapterId);
+
+    if (!status?.unlocked) {
+      return;
+    }
+
+    const chapterPuzzleIds = status.puzzleIds;
+    const firstUnsolvedId =
+      chapterPuzzleIds.find(id => !completedPuzzles.includes(id)) ?? chapterPuzzleIds[0];
+
+    setSelectedChapterId(chapterId);
+    selectPuzzleById(firstUnsolvedId);
+    setViewMode('solving');
+    window.history.pushState(null, '', `#/chapter/${chapterId}`);
+  };
+
+  const showChapterSelect = () => {
+    setViewMode('chapters');
+    window.history.pushState(null, '', '#/');
+  };
+
+  const selectAvailablePuzzle = (puzzleId: number) => {
+    const target = puzzleLabels.find(candidate => candidate.id === puzzleId);
+
+    if (!target?.available) {
+      return;
+    }
+
+    selectPuzzleById(puzzleId);
   };
 
   const runCode = () => {
@@ -380,10 +527,14 @@ function App() {
   };
 
   const moveToNextPuzzle = () => {
-    const solvedId = puzzles[currentPuzzle].id;
+    const solvedId = displayedPuzzle.id;
     setCompletedPuzzles(ids => (ids.includes(solvedId) ? ids : [...ids, solvedId]));
     playSound('unlock');
-    resetPuzzleState(currentPuzzle + 1);
+
+    const nextIndex = displayedPuzzleIndex + 1;
+    if (nextIndex < chapterPuzzles.length) {
+      resetPuzzleState(nextIndex);
+    }
   };
 
   const checkSolution = () => {
@@ -398,10 +549,14 @@ function App() {
     if (currentOutput === expected) {
       playSound('success');
       if (isSolutionRevealed) {
-        setSolvedWithAssist(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
+        setSolvedWithAssist(ids =>
+          ids.includes(displayedPuzzle.id) ? ids : [...ids, displayedPuzzle.id]
+        );
       }
-      if (currentPuzzle === puzzles.length - 1) {
-        setCompletedPuzzles(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
+      if (displayedPuzzleIndex === chapterPuzzles.length - 1) {
+        setCompletedPuzzles(ids =>
+          ids.includes(displayedPuzzle.id) ? ids : [...ids, displayedPuzzle.id]
+        );
         setEscapeUnlocked(true);
         setOutput('All locks are solved. The escape route is ready.');
       } else {
@@ -425,7 +580,7 @@ function App() {
   };
 
   const revealHint = () => {
-    if (hintsUsed >= puzzle.hints.length) {
+    if (hintsUsed >= displayedPuzzle.hints.length) {
       return;
     }
 
@@ -439,8 +594,10 @@ function App() {
     }
 
     setIsSolutionRevealed(true);
-    setSolvedWithAssist(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
-    setUserCode(showSimplified ? puzzle.simplifiedExpected : puzzle.expectedCode);
+    setSolvedWithAssist(ids =>
+      ids.includes(displayedPuzzle.id) ? ids : [...ids, displayedPuzzle.id]
+    );
+    setUserCode(showSimplified ? displayedPuzzle.simplifiedExpected : displayedPuzzle.expectedCode);
     setOutput(activePuzzle.expectedOutput);
   };
 
@@ -485,10 +642,21 @@ function App() {
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-green-300">
               JavaScript Fundamentals
             </p>
-            <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">Escape Room Terminal</h1>
+            <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
+              {viewMode === 'chapters' ? 'Choose a Chapter' : 'Escape Room Terminal'}
+            </h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {viewMode === 'solving' ? (
+              <button
+                className="h-10 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-semibold text-gray-100 transition hover:bg-white/20"
+                onClick={showChapterSelect}
+                type="button"
+              >
+                Back to Chapters
+              </button>
+            ) : null}
             <Timer seconds={timer} />
             <label className="flex h-10 items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-gray-100">
               <input
@@ -502,20 +670,94 @@ function App() {
           </div>
         </header>
 
+        {viewMode === 'solving' ? (
         <ProgressBar
           attempts={attempts}
           attemptsTotal={attemptsTotal}
-          currentPuzzle={currentPuzzle + 1}
-          totalPuzzles={puzzles.length}
+          chapterNumber={selectedChapter.id}
+          chapterTitle={selectedChapter.title}
+          currentChapterPuzzle={Math.max(displayedChapterPuzzleNumber, 1)}
+          onSelectPuzzle={selectAvailablePuzzle}
+          puzzleLabels={puzzleLabels}
+          totalChapterPuzzles={selectedChapterPuzzles.length}
         />
+        ) : null}
 
-        <section className="grid flex-1 gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+        <section
+          className={
+            viewMode === 'chapters' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-4' : 'hidden'
+          }
+        >
+          {chapterStatuses.map(chapter => {
+            const selected = viewMode === 'solving' && chapter.id === selectedChapter.id;
+            const icon = chapter.complete ? '✅' : chapter.unlocked ? String(chapter.id) : '🔒';
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`min-h-36 rounded-lg border p-4 text-left transition ${
+                  selected
+                    ? 'border-yellow-300/80 bg-yellow-300/15 shadow-lg shadow-yellow-500/10'
+                    : chapter.unlocked
+                      ? 'border-green-500/25 bg-white/10 hover:border-green-300/60 hover:bg-white/15'
+                      : 'cursor-not-allowed border-white/10 bg-black/25 opacity-60'
+                }`}
+                disabled={!chapter.unlocked}
+                key={chapter.id}
+                onClick={() => selectChapter(chapter.id)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-300">
+                      Chapter {chapter.id}
+                    </p>
+                    <h2 className="mt-1 text-xl font-bold text-white">{chapter.title}</h2>
+                  </div>
+                  <span className="flex h-10 min-w-10 items-center justify-center rounded-lg border border-white/15 bg-black/30 text-lg font-bold">
+                    {icon}
+                  </span>
+                </div>
+
+                <p className="mt-3 min-h-12 text-sm leading-6 text-gray-300">
+                  {chapter.description}
+                </p>
+
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center justify-between text-xs text-gray-300">
+                    <span>
+                      {chapter.solvedCount}/{chapter.puzzleIds.length} solved
+                    </span>
+                    <span>{chapter.complete ? 'Complete' : chapter.unlocked ? 'Unlocked' : 'Locked'}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-950/70">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-300"
+                      style={{
+                        width: `${(chapter.solvedCount / chapter.puzzleIds.length) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </section>
+
+        <section
+          className={
+            viewMode === 'solving'
+              ? 'grid flex-1 gap-5 lg:grid-cols-[0.92fr_1.08fr]'
+              : 'hidden'
+          }
+        >
           <PuzzleCard
             completedPuzzles={completedPuzzles}
-            currentPuzzle={currentPuzzle}
+            currentPuzzleId={displayedPuzzle.id}
             escapeUnlocked={escapeUnlocked}
+            chapterPuzzles={selectedChapterPuzzles}
             onEscape={completeGame}
-            puzzle={puzzle}
+            puzzle={displayedPuzzle}
             showSimplified={showSimplified}
           />
 
@@ -531,13 +773,13 @@ function App() {
             />
 
             <div className="grid gap-4 md:grid-cols-2">
-              <HintButton hints={puzzle.hints} hintsUsed={hintsUsed} onReveal={revealHint} />
+              <HintButton hints={displayedPuzzle.hints} hintsUsed={hintsUsed} onReveal={revealHint} />
               <GiveUpButton
-                explanation={puzzle.explanation}
-                expectedCode={puzzle.expectedCode}
+                explanation={displayedPuzzle.explanation}
+                expectedCode={displayedPuzzle.expectedCode}
                 isRevealed={isSolutionRevealed}
                 onGiveUp={giveUp}
-                practiceProblem={puzzle.practiceProblem}
+                practiceProblem={displayedPuzzle.practiceProblem}
               />
             </div>
           </div>
