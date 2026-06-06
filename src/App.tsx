@@ -445,16 +445,7 @@ function App() {
   const startNewGame = () => {
     const hasProgress = timer > 0 || completedPuzzles.length > 0 || userCode.trim().length > 0;
     if (hasProgress) {
-      setConfirmModal({
-        title: 'Discard Progress?',
-        message: 'Start a new game and discard the saved run? All your progress will be lost.',
-        confirmLabel: 'Discard & Restart',
-        tone: 'danger',
-        onConfirm: () => {
-          setConfirmModal(null);
-          doStartNewGame();
-        },
-      });
+      doStartNewGame();
     } else {
       doStartNewGame();
     }
@@ -653,7 +644,7 @@ function App() {
   };
 
   if (isCompleted) {
-    return <CompletionScreen data={completionData} onPlayAgain={startNewGame} />;
+    return <CompletionScreen data={completionData} onPlayAgain={doStartNewGame} />;
   }
 
   if (showResumeModal && resumeProgress) {
