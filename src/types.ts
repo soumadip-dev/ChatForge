@@ -8,6 +8,8 @@ export type Puzzle = {
   hints: string[];
   simplifiedVersion: string;
   simplifiedExpected: string;
+  simplifiedExpectedOutput: string;
+  simplifiedValidationCode?: string;
   setupCode?: string;
   validationCode?: string;
   returnsExpression?: boolean;

@@ -43,7 +43,10 @@ function PuzzleCard({
             <p className="text-sm font-semibold text-cyan-200">Simplified route unlocked</p>
             <p className="mt-2 text-gray-100">{puzzle.simplifiedVersion}</p>
             <p className="mt-3 font-mono text-sm text-cyan-100">
-              Target: {puzzle.simplifiedExpected}
+              Code target: {puzzle.simplifiedExpected}
+            </p>
+            <p className="mt-2 font-mono text-sm text-cyan-100">
+              Output target: {puzzle.simplifiedExpectedOutput}
             </p>
           </div>
         ) : null}

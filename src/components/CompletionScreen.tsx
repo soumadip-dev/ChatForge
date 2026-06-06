@@ -3,6 +3,7 @@ type CompletionData = {
   hintsUsed: number;
   puzzlesSolved: number;
   attemptsTotal: number;
+  assistedSolves: number;
   shareText: string;
 };
 
@@ -30,12 +31,13 @@ function CompletionScreen({ data, onPlayAgain }: CompletionScreenProps) {
           The final door is open. Your JavaScript fundamentals passed every lock.
         </p>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-4">
+        <div className="mt-8 grid gap-3 sm:grid-cols-5">
           {[
             ['Time', data.timeTaken],
             ['Puzzles', String(data.puzzlesSolved)],
             ['Hints', String(data.hintsUsed)],
             ['Attempts', String(data.attemptsTotal)],
+            ['Assisted', String(data.assistedSolves)],
           ].map(([label, value]) => (
             <div className="rounded-lg border border-white/10 bg-black/30 p-4" key={label}>
               <p className="text-sm text-gray-400">{label}</p>

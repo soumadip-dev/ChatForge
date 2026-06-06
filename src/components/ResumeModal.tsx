@@ -11,10 +11,17 @@ type ResumeModalProps = {
 
 function ResumeModal({ progress, onResume, onStartNew }: ResumeModalProps) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <section className="w-full max-w-lg rounded-2xl border border-green-500/35 bg-gray-950 p-6 text-white shadow-2xl shadow-green-950/40">
+    <div
+      aria-labelledby="resume-title"
+      aria-modal="true"
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+      role="dialog"
+    >
+      <section className="w-full max-w-lg rounded-lg border border-green-500/35 bg-gray-950 p-6 text-white shadow-2xl shadow-green-950/40">
         <p className="text-green-400 animate-pulse">Saved signal detected</p>
-        <h2 className="mt-2 text-2xl font-bold">Resume Escape Room?</h2>
+        <h2 className="mt-2 text-2xl font-bold" id="resume-title">
+          Resume Escape Room?
+        </h2>
         <p className="mt-3 text-gray-300">
           A saved run is waiting at puzzle {progress.puzzleNumber}.
         </p>
@@ -36,6 +43,7 @@ function ResumeModal({ progress, onResume, onStartNew }: ResumeModalProps) {
 
         <div className="mt-6 flex flex-wrap gap-3">
           <button
+            autoFocus
             className="rounded-lg bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
             onClick={onResume}
             type="button"

@@ -11,16 +11,27 @@ import { puzzles } from './data/puzzles';
 import type { Puzzle } from './types';
 
 const STORAGE_KEY = 'escapeRoomProgress';
+const STORAGE_VERSION = 2;
+const SOUND_KEY = 'escapeRoomSoundEnabled';
+const MAX_OUTPUT_LENGTH = 5000;
+const MAX_LOG_LINES = 100;
 
 type SavedProgress = {
+  version?: number;
   currentPuzzle: number;
+  userCode?: string;
+  output?: string;
+  error?: string;
   attempts: number;
   attemptsTotal: number;
   hintsUsed: number;
   totalHintsUsed: number;
   timer: number;
   showSimplified: boolean;
+  isSolutionRevealed?: boolean;
+  escapeUnlocked?: boolean;
   completedPuzzles: number[];
+  solvedWithAssist?: number[];
   timestamp: number;
 };
 
@@ -45,17 +56,45 @@ const normalizeOutput = (value: string) => value.trim().replace(/\r\n/g, '\n');
 const loadProgress = (): SavedProgress | null => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? (JSON.parse(saved) as SavedProgress) : null;
+    if (!saved) {
+      return null;
+    }
+
+    const progress = JSON.parse(saved) as SavedProgress;
+    const isValidPuzzle =
+      Number.isInteger(progress.currentPuzzle) &&
+      progress.currentPuzzle >= 0 &&
+      progress.currentPuzzle < puzzles.length;
+
+    if (!isValidPuzzle || !Array.isArray(progress.completedPuzzles)) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    return progress;
   } catch {
     localStorage.removeItem(STORAGE_KEY);
     return null;
   }
 };
 
+const loadSoundPreference = () => {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 const buildWorkerSource = (userCode: string, puzzle: Puzzle) => `
   const logs = [];
   const console = {
-    log: (...args) => logs.push(args.map((item) => String(item)).join(' '))
+    log: (...args) => {
+      if (logs.length >= ${MAX_LOG_LINES}) {
+        throw new Error('Too much output. Keep console.log calls under ${MAX_LOG_LINES}.');
+      }
+      logs.push(args.map((item) => String(item)).join(' '));
+    }
   };
 
   try {
@@ -63,17 +102,23 @@ const buildWorkerSource = (userCode: string, puzzle: Puzzle) => `
     const code = ${JSON.stringify(userCode)};
     const validation = ${JSON.stringify(puzzle.validationCode || '')};
     const returnsExpression = ${JSON.stringify(Boolean(puzzle.returnsExpression))};
+    const guard = '"use strict";\\nconst self = undefined, globalThis = undefined, fetch = undefined, XMLHttpRequest = undefined, importScripts = undefined, WebSocket = undefined;\\n';
     const body = returnsExpression
       ? setup + '\\nreturn (' + code + ');'
       : setup + '\\n' + code + '\\n' + (validation ? 'return (' + validation + ');' : '');
-    const result = Function('console', '"use strict";\\n' + body)(console);
+    const result = Function('console', guard + body)(console);
     const output = logs.length > 0
       ? logs.join('\\n')
       : result !== undefined
         ? String(result)
         : 'Code executed successfully (no output)';
 
-    self.postMessage({ type: 'success', output });
+    self.postMessage({
+      type: 'success',
+      output: output.length > ${MAX_OUTPUT_LENGTH}
+        ? output.slice(0, ${MAX_OUTPUT_LENGTH}) + '\\n...output truncated...'
+        : output
+    });
   } catch (error) {
     self.postMessage({ type: 'error', error: error instanceof Error ? error.message : String(error) });
   }
@@ -92,16 +137,28 @@ function App() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [showSimplified, setShowSimplified] = useState(false);
   const [error, setError] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(loadSoundPreference);
   const [showResumeModal, setShowResumeModal] = useState(Boolean(savedProgress));
   const [resumeProgress, setResumeProgress] = useState<SavedProgress | null>(savedProgress);
   const [isRunning, setIsRunning] = useState(false);
   const [isSolutionRevealed, setIsSolutionRevealed] = useState(false);
   const [completedPuzzles, setCompletedPuzzles] = useState<number[]>([]);
+  const [solvedWithAssist, setSolvedWithAssist] = useState<number[]>([]);
   const [escapeUnlocked, setEscapeUnlocked] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
   const puzzle = puzzles[currentPuzzle];
+  const activePuzzle = useMemo<Puzzle>(
+    () =>
+      showSimplified
+        ? {
+            ...puzzle,
+            expectedOutput: puzzle.simplifiedExpectedOutput,
+            validationCode: puzzle.simplifiedValidationCode ?? '',
+          }
+        : puzzle,
+    [puzzle, showSimplified]
+  );
 
   const completionData = useMemo(
     () => ({
@@ -109,11 +166,12 @@ function App() {
       hintsUsed: totalHintsUsed,
       puzzlesSolved: puzzles.length,
       attemptsTotal,
+      assistedSolves: solvedWithAssist.length,
       shareText: `I escaped the JavaScript Fundamentals Escape Room in ${formatTime(
         timer
       )} using ${totalHintsUsed} hints! Can you beat me?`,
     }),
-    [attemptsTotal, timer, totalHintsUsed]
+    [attemptsTotal, solvedWithAssist.length, timer, totalHintsUsed]
   );
 
   const playSound = useCallback(
@@ -147,14 +205,21 @@ function App() {
     }
 
     const progress: SavedProgress = {
+      version: STORAGE_VERSION,
       currentPuzzle,
+      userCode,
+      output,
+      error,
       attempts,
       attemptsTotal,
       hintsUsed,
       totalHintsUsed,
       timer,
       showSimplified,
+      isSolutionRevealed,
+      escapeUnlocked,
       completedPuzzles,
+      solvedWithAssist,
       timestamp: Date.now(),
     };
 
@@ -164,11 +229,17 @@ function App() {
     attemptsTotal,
     completedPuzzles,
     currentPuzzle,
+    error,
+    escapeUnlocked,
     hintsUsed,
     isCompleted,
+    isSolutionRevealed,
+    output,
     showSimplified,
+    solvedWithAssist,
     timer,
     totalHintsUsed,
+    userCode,
   ]);
 
   useEffect(() => {
@@ -192,6 +263,14 @@ function App() {
     return () => window.clearTimeout(saveId);
   }, [saveProgress, showResumeModal]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(SOUND_KEY, String(soundEnabled));
+    } catch {
+      // Ignore private browsing or storage quota failures.
+    }
+  }, [soundEnabled]);
+
   useEffect(
     () => () => {
       workerRef.current?.terminate();
@@ -205,7 +284,7 @@ function App() {
     }
 
     setCurrentPuzzle(resumeProgress.currentPuzzle);
-    setUserCode(puzzles[resumeProgress.currentPuzzle].starterCode);
+    setUserCode(resumeProgress.userCode ?? puzzles[resumeProgress.currentPuzzle].starterCode);
     setAttempts(resumeProgress.attempts);
     setAttemptsTotal(resumeProgress.attemptsTotal || resumeProgress.attempts);
     setHintsUsed(resumeProgress.hintsUsed);
@@ -213,12 +292,20 @@ function App() {
     setTimer(resumeProgress.timer);
     setShowSimplified(Boolean(resumeProgress.showSimplified));
     setCompletedPuzzles(resumeProgress.completedPuzzles || []);
-    setOutput('');
-    setError('');
+    setSolvedWithAssist(resumeProgress.solvedWithAssist || []);
+    setIsSolutionRevealed(Boolean(resumeProgress.isSolutionRevealed));
+    setEscapeUnlocked(Boolean(resumeProgress.escapeUnlocked));
+    setOutput(resumeProgress.output ?? '');
+    setError(resumeProgress.error ?? '');
     setShowResumeModal(false);
   };
 
   const startNewGame = () => {
+    const hasProgress = timer > 0 || completedPuzzles.length > 0 || userCode.trim().length > 0;
+    if (hasProgress && !window.confirm('Start a new game and discard the saved run?')) {
+      return;
+    }
+
     localStorage.removeItem(STORAGE_KEY);
     setResumeProgress(null);
     setShowResumeModal(false);
@@ -226,6 +313,7 @@ function App() {
     setAttemptsTotal(0);
     setTotalHintsUsed(0);
     setCompletedPuzzles([]);
+    setSolvedWithAssist([]);
     setEscapeUnlocked(false);
     setIsCompleted(false);
     resetPuzzleState(0);
@@ -243,11 +331,11 @@ function App() {
     setError('');
     setOutput('Running security check...');
 
-    const worker = new Worker(
-      URL.createObjectURL(
-        new Blob([buildWorkerSource(userCode, puzzle)], { type: 'text/javascript' })
-      )
+    const workerUrl = URL.createObjectURL(
+      new Blob([buildWorkerSource(userCode, activePuzzle)], { type: 'text/javascript' })
     );
+    const worker = new Worker(workerUrl);
+    URL.revokeObjectURL(workerUrl);
     workerRef.current = worker;
 
     const timeoutId = window.setTimeout(() => {
@@ -299,7 +387,7 @@ function App() {
   };
 
   const checkSolution = () => {
-    const expected = normalizeOutput(puzzle.expectedOutput);
+    const expected = normalizeOutput(activePuzzle.expectedOutput);
     const currentOutput = normalizeOutput(output);
 
     if (!currentOutput || error) {
@@ -309,6 +397,9 @@ function App() {
 
     if (currentOutput === expected) {
       playSound('success');
+      if (isSolutionRevealed) {
+        setSolvedWithAssist(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
+      }
       if (currentPuzzle === puzzles.length - 1) {
         setCompletedPuzzles(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
         setEscapeUnlocked(true);
@@ -321,7 +412,11 @@ function App() {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       setAttemptsTotal(value => value + 1);
-      setError('Access denied. Compare the output with the puzzle target and try again.');
+      setError(
+        `Access denied. Expected "${expected || 'no output'}" but the terminal showed "${
+          currentOutput || 'no output'
+        }".`
+      );
 
       if (newAttempts >= 2 && !showSimplified) {
         setShowSimplified(true);
@@ -339,9 +434,14 @@ function App() {
   };
 
   const giveUp = () => {
+    if (!window.confirm('Reveal this solution? This puzzle will be marked as assisted.')) {
+      return;
+    }
+
     setIsSolutionRevealed(true);
-    setUserCode(puzzle.expectedCode);
-    setOutput(puzzle.expectedOutput);
+    setSolvedWithAssist(ids => (ids.includes(puzzle.id) ? ids : [...ids, puzzle.id]));
+    setUserCode(showSimplified ? puzzle.simplifiedExpected : puzzle.expectedCode);
+    setOutput(activePuzzle.expectedOutput);
   };
 
   const completeGame = () => {
@@ -353,6 +453,23 @@ function App() {
 
   if (isCompleted) {
     return <CompletionScreen data={completionData} onPlayAgain={startNewGame} />;
+  }
+
+  if (showResumeModal && resumeProgress) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
+        <ResumeModal
+          progress={{
+            puzzleNumber: resumeProgress.currentPuzzle + 1,
+            timer: formatTime(resumeProgress.timer),
+            attempts: resumeProgress.attemptsTotal || resumeProgress.attempts,
+            hints: resumeProgress.totalHintsUsed || resumeProgress.hintsUsed,
+          }}
+          onResume={resumeGame}
+          onStartNew={startNewGame}
+        />
+      </main>
+    );
   }
 
   return (
@@ -426,19 +543,6 @@ function App() {
           </div>
         </section>
       </div>
-
-      {showResumeModal && resumeProgress ? (
-        <ResumeModal
-          progress={{
-            puzzleNumber: resumeProgress.currentPuzzle + 1,
-            timer: formatTime(resumeProgress.timer),
-            attempts: resumeProgress.attemptsTotal || resumeProgress.attempts,
-            hints: resumeProgress.totalHintsUsed || resumeProgress.hintsUsed,
-          }}
-          onResume={resumeGame}
-          onStartNew={startNewGame}
-        />
-      ) : null}
     </main>
   );
 }

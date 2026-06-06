@@ -5,8 +5,9 @@ type HintButtonProps = {
 };
 
 function HintButton({ hints, hintsUsed, onReveal }: HintButtonProps) {
-  const hasHintsLeft = hintsUsed < hints.length;
-  const visibleHints = hints.slice(0, hintsUsed);
+  const availableHints = hints.slice(0, 2);
+  const hasHintsLeft = hintsUsed < availableHints.length;
+  const visibleHints = availableHints.slice(0, hintsUsed);
 
   return (
     <section className="rounded-lg border border-yellow-500/25 bg-yellow-500/10 p-4 backdrop-blur-lg">
@@ -14,7 +15,7 @@ function HintButton({ hints, hintsUsed, onReveal }: HintButtonProps) {
         <div>
           <h2 className="font-semibold text-yellow-200">Hints</h2>
           <p className="text-sm text-gray-300">
-            {hintsUsed}/{hints.length} revealed
+            {hintsUsed}/{availableHints.length} revealed
           </p>
         </div>
         <button
