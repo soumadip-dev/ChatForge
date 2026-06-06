@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeEditor from './components/CodeEditor';
 import CompletionScreen from './components/CompletionScreen';
+import ConfirmModal from './components/ConfirmModal';
 import GiveUpButton from './components/GiveUpButton';
 import HintButton from './components/HintButton';
 import ProgressBar from './components/ProgressBar';
@@ -142,7 +143,9 @@ const buildWorkerSource = (userCode: string, puzzle: Puzzle) => `
 function App() {
   const savedProgress = useMemo(() => loadProgress(), []);
   const initialRouteChapterId = useMemo(() => getRouteChapterId(), []);
-  const [viewMode, setViewMode] = useState<ViewMode>(initialRouteChapterId ? 'solving' : 'chapters');
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    initialRouteChapterId ? 'solving' : 'chapters'
+  );
   const [currentPuzzle, setCurrentPuzzle] = useState(0);
   const [selectedChapterId, setSelectedChapterId] = useState(initialRouteChapterId ?? 1);
   const [userCode, setUserCode] = useState(chapterPuzzles[0].starterCode);
@@ -165,6 +168,16 @@ function App() {
   const [escapeUnlocked, setEscapeUnlocked] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
+  type ConfirmModalState = {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    tone: 'danger' | 'success';
+    onConfirm: () => void;
+  };
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+  const closeConfirmModal = () => setConfirmModal(null);
+
   const puzzle = chapterPuzzles[currentPuzzle];
   const activeChapter = useMemo(() => findChapterByPuzzleId(puzzle.id), [puzzle.id]);
   const selectedChapter = useMemo(
@@ -178,10 +191,14 @@ function App() {
         .filter((candidate): candidate is Puzzle => Boolean(candidate)),
     [selectedChapter]
   );
-  const currentChapterPuzzle = selectedChapterPuzzles.findIndex(candidate => candidate.id === puzzle.id);
+  const currentChapterPuzzle = selectedChapterPuzzles.findIndex(
+    candidate => candidate.id === puzzle.id
+  );
   const displayedPuzzle =
-    currentChapterPuzzle >= 0 ? puzzle : selectedChapterPuzzles[0] ?? chapterPuzzles[0];
-  const displayedPuzzleIndex = chapterPuzzles.findIndex(candidate => candidate.id === displayedPuzzle.id);
+    currentChapterPuzzle >= 0 ? puzzle : (selectedChapterPuzzles[0] ?? chapterPuzzles[0]);
+  const displayedPuzzleIndex = chapterPuzzles.findIndex(
+    candidate => candidate.id === displayedPuzzle.id
+  );
   const displayedChapterPuzzleNumber =
     selectedChapterPuzzles.findIndex(candidate => candidate.id === displayedPuzzle.id) + 1;
   const activePuzzle = useMemo<Puzzle>(
@@ -382,7 +399,9 @@ function App() {
       resumeProgress.selectedChapterId ??
         findChapterByPuzzleId(chapterPuzzles[resumeProgress.currentPuzzle].id).id
     );
-    setUserCode(resumeProgress.userCode ?? chapterPuzzles[resumeProgress.currentPuzzle].starterCode);
+    setUserCode(
+      resumeProgress.userCode ?? chapterPuzzles[resumeProgress.currentPuzzle].starterCode
+    );
     setAttempts(resumeProgress.attempts);
     setAttemptsTotal(resumeProgress.attemptsTotal || resumeProgress.attempts);
     setHintsUsed(resumeProgress.hintsUsed);
@@ -397,18 +416,17 @@ function App() {
     setError(resumeProgress.error ?? '');
     setShowResumeModal(false);
     setViewMode('solving');
-    window.history.pushState(null, '', `#/chapter/${
-      resumeProgress.selectedChapterId ??
-      findChapterByPuzzleId(chapterPuzzles[resumeProgress.currentPuzzle].id).id
-    }`);
+    window.history.pushState(
+      null,
+      '',
+      `#/chapter/${
+        resumeProgress.selectedChapterId ??
+        findChapterByPuzzleId(chapterPuzzles[resumeProgress.currentPuzzle].id).id
+      }`
+    );
   };
 
-  const startNewGame = () => {
-    const hasProgress = timer > 0 || completedPuzzles.length > 0 || userCode.trim().length > 0;
-    if (hasProgress && !window.confirm('Start a new game and discard the saved run?')) {
-      return;
-    }
-
+  const doStartNewGame = () => {
     localStorage.removeItem(STORAGE_KEY);
     setResumeProgress(null);
     setShowResumeModal(false);
@@ -422,6 +440,24 @@ function App() {
     resetPuzzleState(0);
     setViewMode('chapters');
     window.history.pushState(null, '', '#/');
+  };
+
+  const startNewGame = () => {
+    const hasProgress = timer > 0 || completedPuzzles.length > 0 || userCode.trim().length > 0;
+    if (hasProgress) {
+      setConfirmModal({
+        title: 'Discard Progress?',
+        message: 'Start a new game and discard the saved run? All your progress will be lost.',
+        confirmLabel: 'Discard & Restart',
+        tone: 'danger',
+        onConfirm: () => {
+          setConfirmModal(null);
+          doStartNewGame();
+        },
+      });
+    } else {
+      doStartNewGame();
+    }
   };
 
   const selectPuzzleById = (puzzleId: number) => {
@@ -589,16 +625,24 @@ function App() {
   };
 
   const giveUp = () => {
-    if (!window.confirm('Reveal this solution? This puzzle will be marked as assisted.')) {
-      return;
-    }
-
-    setIsSolutionRevealed(true);
-    setSolvedWithAssist(ids =>
-      ids.includes(displayedPuzzle.id) ? ids : [...ids, displayedPuzzle.id]
-    );
-    setUserCode(showSimplified ? displayedPuzzle.simplifiedExpected : displayedPuzzle.expectedCode);
-    setOutput(activePuzzle.expectedOutput);
+    setConfirmModal({
+      title: 'Reveal Solution?',
+      message:
+        'This puzzle will be marked as assisted. The solution code will be filled in for you.',
+      confirmLabel: 'Reveal Solution',
+      tone: 'danger',
+      onConfirm: () => {
+        setConfirmModal(null);
+        setIsSolutionRevealed(true);
+        setSolvedWithAssist(ids =>
+          ids.includes(displayedPuzzle.id) ? ids : [...ids, displayedPuzzle.id]
+        );
+        setUserCode(
+          showSimplified ? displayedPuzzle.simplifiedExpected : displayedPuzzle.expectedCode
+        );
+        setOutput(activePuzzle.expectedOutput);
+      },
+    });
   };
 
   const completeGame = () => {
@@ -639,9 +683,14 @@ function App() {
       <div className="relative mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-7xl flex-col gap-5">
         <header className="flex flex-col gap-4 rounded-lg border border-green-500/25 bg-black/30 p-4 backdrop-blur-md md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-green-300">
+            <button
+              className="text-sm font-semibold uppercase tracking-[0.24em] text-green-300"
+              onClick={() => {
+                setViewMode('chapters');
+              }}
+            >
               JavaScript Fundamentals
-            </p>
+            </button>
             <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
               {viewMode === 'chapters' ? 'Choose a Chapter' : 'Escape Room Terminal'}
             </h1>
@@ -671,16 +720,16 @@ function App() {
         </header>
 
         {viewMode === 'solving' ? (
-        <ProgressBar
-          attempts={attempts}
-          attemptsTotal={attemptsTotal}
-          chapterNumber={selectedChapter.id}
-          chapterTitle={selectedChapter.title}
-          currentChapterPuzzle={Math.max(displayedChapterPuzzleNumber, 1)}
-          onSelectPuzzle={selectAvailablePuzzle}
-          puzzleLabels={puzzleLabels}
-          totalChapterPuzzles={selectedChapterPuzzles.length}
-        />
+          <ProgressBar
+            attempts={attempts}
+            attemptsTotal={attemptsTotal}
+            chapterNumber={selectedChapter.id}
+            chapterTitle={selectedChapter.title}
+            currentChapterPuzzle={Math.max(displayedChapterPuzzleNumber, 1)}
+            onSelectPuzzle={selectAvailablePuzzle}
+            puzzleLabels={puzzleLabels}
+            totalChapterPuzzles={selectedChapterPuzzles.length}
+          />
         ) : null}
 
         <section
@@ -728,7 +777,9 @@ function App() {
                     <span>
                       {chapter.solvedCount}/{chapter.puzzleIds.length} solved
                     </span>
-                    <span>{chapter.complete ? 'Complete' : chapter.unlocked ? 'Unlocked' : 'Locked'}</span>
+                    <span>
+                      {chapter.complete ? 'Complete' : chapter.unlocked ? 'Unlocked' : 'Locked'}
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-950/70">
                     <div
@@ -746,9 +797,7 @@ function App() {
 
         <section
           className={
-            viewMode === 'solving'
-              ? 'grid flex-1 gap-5 lg:grid-cols-[0.92fr_1.08fr]'
-              : 'hidden'
+            viewMode === 'solving' ? 'grid flex-1 gap-5 lg:grid-cols-[0.92fr_1.08fr]' : 'hidden'
           }
         >
           <PuzzleCard
@@ -773,7 +822,11 @@ function App() {
             />
 
             <div className="grid gap-4 md:grid-cols-2">
-              <HintButton hints={displayedPuzzle.hints} hintsUsed={hintsUsed} onReveal={revealHint} />
+              <HintButton
+                hints={displayedPuzzle.hints}
+                hintsUsed={hintsUsed}
+                onReveal={revealHint}
+              />
               <GiveUpButton
                 explanation={displayedPuzzle.explanation}
                 expectedCode={displayedPuzzle.expectedCode}
@@ -785,6 +838,17 @@ function App() {
           </div>
         </section>
       </div>
+
+      {confirmModal ? (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          tone={confirmModal.tone}
+          onCancel={closeConfirmModal}
+          onConfirm={confirmModal.onConfirm}
+        />
+      ) : null}
     </main>
   );
 }

@@ -19,6 +19,8 @@ function PuzzleCard({
   escapeUnlocked,
   onEscape,
 }: PuzzleCardProps) {
+  const chapterAllSolved =
+    chapterPuzzles.length > 0 && chapterPuzzles.every(p => completedPuzzles.includes(p.id));
   return (
     <article className="puzzle-transition glow-border flex min-h-[520px] flex-col justify-between rounded-2xl border border-green-500/30 bg-white/10 p-5 shadow-2xl shadow-black/40 backdrop-blur-lg sm:p-8">
       <div>
@@ -78,6 +80,8 @@ function PuzzleCard({
           >
             Escape Room
           </button>
+        ) : chapterAllSolved ? (
+          <p className="text-green-400">System Unlocked</p>
         ) : (
           <p className="text-red-400">System Locked</p>
         )}
