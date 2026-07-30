@@ -47,15 +47,11 @@ git clone https://github.com/soumadip-dev/ChatForge.git
 cd ChatForge
 ```
 
----
-
 ## 2. Install Dependencies
 
 ```bash
 bun install
 ```
-
----
 
 ## 3. Configure Environment Variables
 
@@ -71,8 +67,6 @@ LOG_LEVEL=info
 
 CORS_ORIGINS=<your-frontend-url>
 ```
-
----
 
 ## 4. Run the Development Server
 
@@ -143,8 +137,6 @@ bun run dev
      +-------------------------------+
 ```
 
----
-
 # 🔗 Database Relationships
 
 ## 1. One User → Many Chats
@@ -167,8 +159,6 @@ User (1)
     │
     └──────────< Chats (N)
 ```
-
----
 
 ## 2. One Chat → Many Messages
 
@@ -193,8 +183,6 @@ Chat (1)
     └──────────< Messages (N)
 ```
 
----
-
 ## 3. One User → Many Messages
 
 Although every message belongs to a chat, storing the `user_id` in the `messages` table allows efficient retrieval of all messages created by a specific user without requiring an additional join with the `chats` table.
@@ -207,8 +195,6 @@ User (1)
     └──────────< Messages (N)
 ```
 
----
-
 # ⚡ Database Indexes
 
 ## Chats Index
@@ -220,8 +206,6 @@ CREATE INDEX idx_chats_user_updated
 ON chats(user_id, updated_at DESC);
 ```
 
----
-
 ## Messages Index (Chat History)
 
 Optimizes loading all messages in a chat in chronological order.
@@ -230,8 +214,6 @@ Optimizes loading all messages in a chat in chronological order.
 CREATE INDEX idx_messages_chat_created
 ON messages(chat_id, created_at);
 ```
-
----
 
 ## Messages Index (User History)
 
@@ -252,6 +234,12 @@ bun run dev
 
 # Run database migrations
 bun run migrate
+
+# Start production server
+bun run start
+
+# Build production bundle
+bun run build
 ```
 
 ---
