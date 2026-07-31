@@ -9,12 +9,14 @@ import { NotFound } from './middlewares/notFound.middleware';
 import { errorHandler } from './middlewares/errorhandler.middleware';
 
 import { apiRouter } from './routes';
+import cookieParser from 'cookie-parser';
 
 export function createApp() {
   const app = express();
 
   app.use(configCors());
   app.use(helmet());
+  app.use(cookieParser());
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));

@@ -1,29 +1,29 @@
-// for returning user data
+// Data returned directly from the database
 export type User = {
   id: string;
   name: string;
   age: number;
   email: string;
-  tokenUsed: number;
-  tokenLimit: number;
-  resetAt: Date;
-  totalTokenUsed: number;
-  createdAt: Date;
-  updatedAt: Date;
+  token_used: number;
+  token_limit: number;
+  reset_at: Date;
+  total_token_used: number;
+  created_at: Date;
+  updated_at: Date;
 };
 
-// for saving user data
+// Database row used for inserts/selects
 export type DBUserRow = {
   id: string;
   name: string;
   age: number;
   email: string;
-  tokenUsed?: number;
-  tokenLimit?: number;
-  resetAt?: Date;
-  totalTokenUsed?: number;
-  createdAt: Date;
-  updatedAt: Date;
+  token_used?: number;
+  token_limit?: number;
+  reset_at?: Date;
+  total_token_used?: number;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type DBUserWithPasswordRow = DBUserRow & {
