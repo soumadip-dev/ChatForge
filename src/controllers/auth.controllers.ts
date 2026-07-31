@@ -53,3 +53,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     next(error);
   }
 };
+
+//* Logout a user
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.clearCookie('accessToken', cookieOptions);
+    res.status(200).json({
+      succes: true,
+      message: 'User logged out successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
