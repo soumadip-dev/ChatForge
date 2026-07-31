@@ -1,10 +1,14 @@
 import { AppError } from '../errors/AppError';
-import { createUser, findUserByEmail } from '../repositories/user.repository';
+import {
+  createUser,
+  findUserByEmail,
+  findUserByEmailWithPassword,
+} from '../repositories/user.repository';
 import { createToken } from '../lib/jwt.lib';
-import type { RegisterInput } from '../validators/auth.validator';
+import type { LoginInput, RegisterInput } from '../validators/auth.validator';
 
 import bcrypt from 'bcrypt';
-import type { User } from '../types/user.types';
+import type { DBUserWithPasswordRow, User } from '../types/user.types';
 
 export async function registerUser({
   name,
@@ -26,4 +30,29 @@ export async function registerUser({
   const accessToken = createToken({ id: newUser.id, email: newUser.email });
 
   return { accessToken, newUser };
+}
+
+export async function loginUser({
+  email,
+  password,
+}: LoginInput): Promise<{ accessToken: string; user: DBUserWithPasswordRow }> {
+  const user = await findUserByEmailWithPassword(email);
+
+  if (!user) {
+    throw new AppError(409, 'Invalid credentials');
+  }
+
+  if (!user.password) {
+    throw new AppError(409, 'Invalid credentials');
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    throw new AppError(409, 'Invalid credentials');
+  }
+
+  const accessToken = createToken({ id: user.id, email: user.email });
+
+  return { accessToken, user };
 }

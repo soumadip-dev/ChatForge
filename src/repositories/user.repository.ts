@@ -1,12 +1,12 @@
 // find user by email
 
 import { pool } from '../lib/db.lib';
-import type { DBUserRow, User } from '../types/user.types';
+import type { DBUserRow, DBUserWithPasswordRow, User } from '../types/user.types';
 
 export async function findUserByEmail(email: string): Promise<User | null> {
   const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
-  return result.rows[0] as User | null;
+  return result.rows[0] ?? null;
 }
 
 export async function createUser(
@@ -24,4 +24,13 @@ export async function createUser(
     [name, age, email, password]
   );
   return result.rows[0] as User;
+}
+
+export async function findUserByEmailWithPassword(
+  email: string
+): Promise<DBUserWithPasswordRow | null> {
+  const result = await pool.query<DBUserWithPasswordRow>('SELECT * FROM users WHERE email = $1', [
+    email,
+  ]);
+  return result.rows[0] ?? null;
 }

@@ -1,6 +1,6 @@
 // entry file for express
 // express related logic
-import express, { type Request, type Response } from 'express';
+import express from 'express';
 import helmet from 'helmet';
 
 import { configCors } from './config/cors.config';
