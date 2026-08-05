@@ -51,3 +51,16 @@ export async function createNewChat(userId: string, model: string): Promise<Chat
 
   return result.rows[0]!;
 }
+
+// Delete a chat by id
+export async function deleteChatById(chatId: string, userId: string): Promise<boolean> {
+  const query = `
+  DELETE FROM chats
+  WHERE id = $1
+    AND user_id = $2;
+  RETURNING id;
+  `;
+  const result = await pool.query<{ id: string }>(query, [chatId, userId]);
+
+  return result.rowCount === 1;
+}

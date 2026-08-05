@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { logger } from '../lib/logger.lib';
 import {
   createNewChat,
+  deleteChatById,
   getRecentTwentyChats,
   getSingleChatById,
 } from '../repositories/chat.repository';
@@ -115,9 +116,44 @@ export const getChatById = async (
   }
 };
 
-export const deleteChat = async (req: Request, res: Response, next: NextFunction) => {
+//* Delete a chat by id
+export const deleteChat = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid chat id',
+      });
+      return;
+    }
+
+    logger.info(`Deleting chat ${id} for user ${userId}`);
+
+    const deleted = await deleteChatById(id, userId);
+
+    if (!deleted) {
+      res.status(404).json({
+        success: false,
+        message: 'Chat not found',
+      });
+      return;
+    }
+
+    logger.info(`Deleted chat ${id} for user ${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Chat deleted successfully',
+    });
   } catch (error) {
+    logger.error(error as Error, `Error deleting chat ${req.params.id}`);
     next(error);
   }
 };
