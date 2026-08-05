@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import { logger } from '../lib/logger.lib';
 import {
-  createNewChat,
-  deleteChatById,
-  getRecentTwentyChats,
-  getSingleChatById,
-} from '../repositories/chat.repository';
+  createChatService,
+  deleteChatService,
+  getChatByIdService,
+  getRecentChatsService,
+} from '../services/chat.service';
 
 //* Get the most recent 20 chats for a user
 export const getRecentChats = async (
@@ -14,11 +14,11 @@ export const getRecentChats = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     logger.info(`Fetching recent chats for user: ${userId}`);
 
-    const recentChats = await getRecentTwentyChats(userId);
+    const recentChats = await getRecentChatsService(userId);
 
     logger.info(`Fetched ${recentChats.length} recent chats for user: ${userId}`);
 
@@ -50,7 +50,7 @@ export const createChat = async (
 
     logger.info(`Creating chat for user: ${userId}`);
 
-    const chat = await createNewChat(userId, model);
+    const chat = await createChatService(userId, model);
 
     logger.info(`Created chat ${chat.id} for user: ${userId}`);
 
@@ -87,11 +87,12 @@ export const getChatById = async (
       });
       return;
     }
-    const userId = req.user.id;
+
+    const userId = req.user!.id;
 
     logger.info(`Fetching chat ${id} for user ${userId}`);
 
-    const chat = await getSingleChatById(id, userId);
+    const chat = await getChatByIdService(id, userId);
 
     if (!chat) {
       res.status(404).json({
@@ -111,7 +112,6 @@ export const getChatById = async (
       error as Error,
       `Error fetching chat ${req.params.id} for user ${req.user?.email}`
     );
-
     next(error);
   }
 };
@@ -124,7 +124,6 @@ export const deleteChat = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
 
     if (!id || Array.isArray(id)) {
       res.status(400).json({
@@ -134,9 +133,11 @@ export const deleteChat = async (
       return;
     }
 
+    const userId = req.user!.id;
+
     logger.info(`Deleting chat ${id} for user ${userId}`);
 
-    const deleted = await deleteChatById(id, userId);
+    const deleted = await deleteChatService(id, userId);
 
     if (!deleted) {
       res.status(404).json({

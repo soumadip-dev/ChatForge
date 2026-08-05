@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { loginUser, registerUser } from '../services/auth.services';
+import { loginUser, registerUser } from '../services/auth.service';
 import { cookieOptions } from '../config/cookie.config';
 import { logger } from '../lib/logger.lib';
 
