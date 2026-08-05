@@ -1,6 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import { logger } from '../lib/logger.lib';
-import { getRecentTwentyChats, getSingleChatById } from '../repositories/chat.repository';
+import {
+  createNewChat,
+  getRecentTwentyChats,
+  getSingleChatById,
+} from '../repositories/chat.repository';
 
 //* Get the most recent 20 chats for a user
 export const getRecentChats = async (
@@ -29,9 +33,39 @@ export const getRecentChats = async (
 };
 
 //* Create a new chat
-export const createChat = async (req: Request, res: Response, next: NextFunction) => {
+export const createChat = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
+    const { model } = req.body;
+    const userId = req.user!.id;
+
+    if (!model) {
+      next(new Error('Model is required'));
+      return;
+    }
+
+    logger.info(`Creating chat for user: ${userId}`);
+
+    const chat = await createNewChat(userId, model);
+
+    logger.info(`Created chat ${chat.id} for user: ${userId}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Chat created successfully',
+      data: {
+        chatId: chat.id,
+        userId: chat.user_id,
+        model: chat.model,
+        topic: chat.topic,
+        createdAt: chat.created_at,
+      },
+    });
   } catch (error) {
+    logger.error(error as Error, `Error creating chat for user ${req.user?.email}`);
     next(error);
   }
 };
