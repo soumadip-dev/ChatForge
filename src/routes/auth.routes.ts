@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { login, logout, register, profile } from '../controllers/auth.controllers';
+import { login, logout, register, profile } from '../controllers/auth.controller';
 import { validate } from '../middlewares/validate.middleware';
 import { loginSchema, registerSchema } from '../validators/auth.validator';
 import { authenticate } from '../middlewares/auth.middleware';

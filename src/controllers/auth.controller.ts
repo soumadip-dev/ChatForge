@@ -8,9 +8,13 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
   try {
     const { name, age, email, password } = req.body;
 
+    logger.info(`Registration attempt for email: ${email}`);
+
     const { accessToken, newUser } = await registerUser({ name, age, email, password });
 
     res.cookie('accessToken', accessToken, cookieOptions);
+
+    logger.info(`User registered successfully: ${email}`);
 
     res.status(201).json({
       succes: true,
@@ -22,6 +26,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       },
     });
   } catch (error) {
+    logger.error(error as Error, `Error during registration for ${req.body?.email}`);
     next(error);
   }
 };
@@ -31,11 +36,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   try {
     const { email, password } = req.body;
 
+    logger.info(`Login attempt for email: ${email}`);
+
     const { accessToken, user } = await loginUser({ email, password });
 
     res.cookie('accessToken', accessToken, cookieOptions);
 
-    logger.info(user);
+    logger.info(`User logged in successfully: ${email}`);
 
     res.status(200).json({
       succes: true,
@@ -53,6 +60,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       },
     });
   } catch (error) {
+    logger.error(error as Error, `Login error for email ${req.body?.email}`);
     next(error);
   }
 };
@@ -60,12 +68,18 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 //* Logout a user
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    logger.info(`Logout attempt for user: ${req.user?.email}`);
+
     res.clearCookie('accessToken', cookieOptions);
+
+    logger.info(`User logged out successfully:${req.user?.email}`);
+
     res.status(200).json({
       succes: true,
       message: 'User logged out successfully',
     });
   } catch (error) {
+    logger.error(error as Error, 'Error during logout');
     next(error);
   }
 };
@@ -73,6 +87,8 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
 //* Fetch user profile
 export const profile = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    logger.info(`Profile fetched for user: ${req.user.email}`);
+
     res.status(200).json({
       succes: true,
       message: 'User profile fetched successfully',
@@ -89,6 +105,7 @@ export const profile = async (req: Request, res: Response, next: NextFunction) =
       },
     });
   } catch (error) {
+    logger.error(error as Error, `Error fetching profile for user ${req.user?.email}`);
     next(error);
   }
 };
