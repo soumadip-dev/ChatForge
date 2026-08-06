@@ -6,4 +6,4 @@ import { getMessages, sendMessage } from '../controllers/message.controller';
 export const messageRouter = Router();
 
 messageRouter.get('/:id', getMessages);
-messageRouter.post('/:id', sendMessage);
+messageRouter.post('/', sendMessage);

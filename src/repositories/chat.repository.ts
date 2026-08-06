@@ -30,7 +30,7 @@ export async function getSingleChatById(chatId: string, userId: string): Promise
 
   const result = await pool.query<Chat>(query, [chatId, userId]);
 
-  return result.rows[0]!;
+  return result.rows[0] ?? null;
 }
 
 // Create a new chat
@@ -63,4 +63,51 @@ export async function deleteChatById(chatId: string, userId: string): Promise<bo
   const result = await pool.query<{ id: string }>(query, [chatId, userId]);
 
   return result.rowCount === 1;
+}
+
+// create a chat by userId, topic, and model
+export async function createChat(userId: string, topic: string, model: string): Promise<Chat> {
+  const query = `
+      INSERT INTO chats (
+      user_id,
+      model,
+      topic
+    )
+    VALUES (
+      $1,
+      $2,
+      $3
+    )
+    RETURNING *;
+  `;
+  const result = await pool.query<Chat>(query, [userId, model, topic]);
+
+  return result.rows[0]!;
+}
+
+// update chat metadata
+export async function updateChatMetadata(
+  chatId: string,
+  messageCount: number,
+  topic?: string
+): Promise<void> {
+  if (topic !== undefined) {
+    const query = `
+      UPDATE chats
+      SET message_count = $1,
+          topic = $2,
+          updated_at = NOW()
+      WHERE id = $3;
+    `;
+    await pool.query(query, [messageCount, topic, chatId]);
+    return;
+  }
+
+  const query = `
+    UPDATE chats
+    SET message_count = $1,
+        updated_at = NOW()
+    WHERE id = $2;
+  `;
+  await pool.query(query, [messageCount, chatId]);
 }
