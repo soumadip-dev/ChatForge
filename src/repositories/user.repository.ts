@@ -40,3 +40,11 @@ export async function findUserById(id: string): Promise<User | null> {
 
   return result.rows[0] ?? null;
 }
+
+export async function deleteUser(id: string): Promise<void> {
+  const query = `
+  DELETE FROM users
+  WHERE id = $1
+  `;
+  await pool.query(query, [id]);
+}

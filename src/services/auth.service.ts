@@ -1,8 +1,10 @@
 import { AppError } from '../errors/AppError';
 import {
   createUser,
+  deleteUser,
   findUserByEmail,
   findUserByEmailWithPassword,
+  findUserById,
 } from '../repositories/user.repository';
 import { createToken } from '../lib/jwt.lib';
 import type { LoginInput, RegisterInput } from '../validators/auth.validator';
@@ -10,7 +12,7 @@ import type { LoginInput, RegisterInput } from '../validators/auth.validator';
 import bcrypt from 'bcrypt';
 import type { DBUserWithPasswordRow, User } from '../types/user.types';
 
-export async function registerUser({
+export async function registerUserService({
   name,
   age,
   email,
@@ -32,7 +34,7 @@ export async function registerUser({
   return { accessToken, newUser };
 }
 
-export async function loginUser({
+export async function loginUserService({
   email,
   password,
 }: LoginInput): Promise<{ accessToken: string; user: DBUserWithPasswordRow }> {
@@ -55,4 +57,14 @@ export async function loginUser({
   const accessToken = createToken({ id: user.id, email: user.email });
 
   return { accessToken, user };
+}
+
+export async function deleteUserService(id: string) {
+  const user = await findUserById(id);
+
+  if (!user) {
+    throw new AppError(404, 'User not found');
+  }
+
+  await deleteUser(id);
 }

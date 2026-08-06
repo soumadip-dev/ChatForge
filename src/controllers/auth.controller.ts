@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { loginUser, registerUser } from '../services/auth.service';
+import { deleteUserService, loginUserService, registerUserService } from '../services/auth.service';
 import { cookieOptions } from '../config/cookie.config';
 import { logger } from '../lib/logger.lib';
 
@@ -10,7 +10,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     logger.info(`Registration attempt for email: ${email}`);
 
-    const { accessToken, newUser } = await registerUser({ name, age, email, password });
+    const { accessToken, newUser } = await registerUserService({ name, age, email, password });
 
     res.cookie('accessToken', accessToken, cookieOptions);
 
@@ -38,7 +38,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     logger.info(`Login attempt for email: ${email}`);
 
-    const { accessToken, user } = await loginUser({ email, password });
+    const { accessToken, user } = await loginUserService({ email, password });
 
     res.cookie('accessToken', accessToken, cookieOptions);
 
@@ -106,6 +106,29 @@ export const profile = async (req: Request, res: Response, next: NextFunction) =
     });
   } catch (error) {
     logger.error(error as Error, `Error fetching profile for user ${req.user?.email}`);
+    next(error);
+  }
+};
+
+//* Delete user account
+export const deleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    logger.info(`Account deleted for user: ${req.user.email}`);
+
+    const { id } = req.user;
+
+    await deleteUserService(id);
+
+    res.clearCookie('accessToken', cookieOptions);
+
+    logger.info(`Account deleted successfully for user: ${req.user.email}`);
+
+    res.status(200).json({
+      succes: true,
+      message: 'Account deleted successfully',
+    });
+  } catch (error) {
+    logger.error(error as Error, `Error deleting account for user ${req.user?.email}`);
     next(error);
   }
 };
