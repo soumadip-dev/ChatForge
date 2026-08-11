@@ -35,3 +35,25 @@ export async function createMessage(
 
   return result.rows[0]!;
 }
+
+export async function getMessagesForSummary(
+  chatId: string,
+  summarizedTillMessageNumber: number,
+  summaryChunkSize: number
+): Promise<Message[]> {
+  const query = `
+  SELECT *
+  FROM messages
+  WHERE chat_id = $1
+  ORDER BY created_at ASC, id ASC
+  OFFSET $2
+  LIMIT $3;
+  `;
+  const result = await pool.query<Message>(query, [
+    chatId,
+    summarizedTillMessageNumber,
+    summaryChunkSize,
+  ]);
+
+  return result.rows;
+}

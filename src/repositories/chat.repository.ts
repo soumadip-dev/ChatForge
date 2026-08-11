@@ -126,3 +126,21 @@ export async function updateChatTokens(chatId: string, usage: ChatTokenUsage): P
 
   await pool.query(query, [usage.promptTokens, usage.completionTokens, usage.totalTokens, chatId]);
 }
+
+export async function updateChatSummary(
+  chatId: string,
+  summary: string,
+  summarizedTillMessageNumber: number
+): Promise<void> {
+  const query = `
+    UPDATE chats
+    SET
+      summary = $2,
+      summary_updated_at = NOW(),
+      summarized_till_message_number = $3,
+      updated_at = NOW()
+    WHERE id = $1
+  `;
+
+  await pool.query(query, [chatId, summary, summarizedTillMessageNumber]);
+}
