@@ -1,3 +1,6 @@
+import { incrementUserTokenUsage, resetUserTokenUsage } from '../repositories/user.repository';
+import type { User } from '../types/user.types';
+
 const SYSTEM_PROMPT = `
 Role: Highly capable, accurate AI assistant.
 
@@ -35,3 +38,21 @@ export const buildMessagesForAI = ({ chat, oldMessages, currentMessage }: any) =
 
   return messages;
 };
+
+export async function resetUsageIfNeeded(user: User): Promise<void> {
+  const now = new Date();
+
+  if (now > user.reset_at) {
+    const resetAt = new Date(Date.now() + 5 * 60 * 60 * 1000);
+
+    await resetUserTokenUsage(user.id, resetAt);
+  }
+}
+
+export function hasTokenLimitReached(user: User): boolean {
+  return user.token_used >= user.token_limit;
+}
+
+export async function addUserTokenUsage(user: User, totalTokens: number): Promise<void> {
+  await incrementUserTokenUsage(user.id, totalTokens);
+}
