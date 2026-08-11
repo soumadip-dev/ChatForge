@@ -28,6 +28,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@openrouter/sdk": "^1.2.22",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
