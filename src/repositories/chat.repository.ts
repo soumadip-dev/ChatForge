@@ -57,7 +57,7 @@ export async function deleteChatById(chatId: string, userId: string): Promise<bo
   const query = `
   DELETE FROM chats
   WHERE id = $1
-    AND user_id = $2;
+    AND user_id = $2
   RETURNING id;
   `;
   const result = await pool.query<{ id: string }>(query, [chatId, userId]);

@@ -25,6 +25,11 @@ export async function authenticate(
     return next();
   } catch (error) {
     logger.error(error);
+
+    if (error instanceof AppError) {
+      return next(error);
+    }
+
     return next(new AppError(500, 'Internal server error'));
   }
 }
