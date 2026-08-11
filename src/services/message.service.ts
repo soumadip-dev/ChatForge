@@ -23,6 +23,7 @@ import {
 import { generateAIResponse } from './ai.service';
 
 import { logger } from '../lib/logger.lib';
+import { AppError } from '../errors/AppError';
 
 interface SendMessageInput {
   userId: string;
@@ -86,7 +87,7 @@ export async function sendMessageService({ userId, chatId, model, content }: Sen
   // --------------------------------------------------
 
   if (hasTokenLimitReached(user)) {
-    throw new Error('Token limit reached. Please try after some time.');
+    throw new AppError(400, 'Token limit reached. Please try after some time.');
   }
 
   // --------------------------------------------------
