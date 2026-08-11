@@ -20,3 +20,9 @@ export type ChatListItem = Pick<Chat, 'id' | 'topic' | 'updated_at'>;
 
 // Payload required to create a chat
 export type CreateChatInput = Pick<Chat, 'user_id' | 'model'>;
+
+export type ChatTokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};

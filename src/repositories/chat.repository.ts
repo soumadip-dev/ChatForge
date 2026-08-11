@@ -1,5 +1,5 @@
 import { pool } from '../lib/db.lib';
-import type { Chat, ChatListItem } from '../types/chat.types';
+import type { Chat, ChatListItem, ChatTokenUsage } from '../types/chat.types';
 
 // Fetch the most recent 20 chats for a user
 export async function getRecentTwentyChats(userId: string): Promise<ChatListItem[]> {
@@ -110,4 +110,19 @@ export async function updateChatMetadata(
     WHERE id = $2;
   `;
   await pool.query(query, [messageCount, chatId]);
+}
+
+// update chat tokens
+export async function updateChatTokens(chatId: string, usage: ChatTokenUsage): Promise<void> {
+  const query = `
+    UPDATE chats
+    SET
+      prompt_tokens = prompt_tokens + $1,
+      completion_tokens = completion_tokens + $2,
+      total_tokens = total_tokens + $3,
+      updated_at = NOW()
+    WHERE id = $4
+  `;
+
+  await pool.query(query, [usage.promptTokens, usage.completionTokens, usage.totalTokens, chatId]);
 }

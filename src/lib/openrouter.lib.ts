@@ -1,4 +1,6 @@
+import { updateChatTokens } from '../repositories/chat.repository';
 import { incrementUserTokenUsage, resetUserTokenUsage } from '../repositories/user.repository';
+import type { Chat, ChatTokenUsage } from '../types/chat.types';
 import type { User } from '../types/user.types';
 
 const SYSTEM_PROMPT = `
@@ -56,3 +58,7 @@ export function hasTokenLimitReached(user: User): boolean {
 export async function addUserTokenUsage(user: User, totalTokens: number): Promise<void> {
   await incrementUserTokenUsage(user.id, totalTokens);
 }
+
+export const addChatTokenUsage = async (chat: Chat, usage: ChatTokenUsage) => {
+  await updateChatTokens(chat.id, usage);
+};
