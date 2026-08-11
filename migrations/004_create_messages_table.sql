@@ -1,9 +1,13 @@
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
 
-    chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    chat_id UUID NOT NULL
+        REFERENCES chats(id)
+        ON DELETE CASCADE,
 
     role VARCHAR(20) NOT NULL
         CHECK (role IN ('user', 'assistant')),

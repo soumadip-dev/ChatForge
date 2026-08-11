@@ -1,13 +1,15 @@
 CREATE TABLE chats (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
 
     topic VARCHAR(255) NOT NULL DEFAULT 'New Chat',
 
     model VARCHAR(100) NOT NULL,
 
-    summary TEXT DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
 
     summary_updated_at TIMESTAMP,
 

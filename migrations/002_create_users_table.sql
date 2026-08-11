@@ -3,7 +3,7 @@ CREATE TABLE users (
 
     name VARCHAR(255) NOT NULL,
 
-    age INTEGER CHECK (age >= 0),
+    age INTEGER CHECK (age >= 10 AND age <= 100),
 
     email VARCHAR(255) NOT NULL UNIQUE,
 
@@ -13,7 +13,7 @@ CREATE TABLE users (
 
     token_limit INTEGER NOT NULL DEFAULT 10000,
 
-    reset_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    reset_at TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '5 hours'),
 
     total_token_used INTEGER NOT NULL DEFAULT 0,
 
