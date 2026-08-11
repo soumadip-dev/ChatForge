@@ -14,6 +14,24 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
   return result.rows;
 }
 
+// Get messages that have not been included in the summary yet
+export async function getMessagesForAI(
+  chatId: string,
+  summarizedTillMessageNumber: number
+): Promise<Message[]> {
+  const query = `
+    SELECT *
+    FROM messages
+    WHERE chat_id = $1
+    ORDER BY created_at ASC, id ASC
+    OFFSET $2;
+  `;
+
+  const result = await pool.query<Message>(query, [chatId, summarizedTillMessageNumber]);
+
+  return result.rows;
+}
+
 export async function createMessage(
   userId: string,
   chatId: string,

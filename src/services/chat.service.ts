@@ -1,5 +1,5 @@
 import {
-  createNewChat,
+  createChat,
   deleteChatById,
   getRecentTwentyChats,
   getSingleChatById,
@@ -10,7 +10,9 @@ export async function getRecentChatsService(userId: string) {
 }
 
 export async function createChatService(userId: string, model: string) {
-  return createNewChat(userId, model);
+  const topic = 'New Chat';
+
+  return createChat(userId, topic, model);
 }
 
 export async function getChatByIdService(chatId: string, userId: string) {
