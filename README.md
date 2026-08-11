@@ -12,7 +12,14 @@
 
 ## 🔋 Features
 
-> 🚧 Features will be documented once the project reaches a stable milestone.
+- **🔐 Authentication & Authorization**: Secure user registration and login using JWT, bcrypt for password hashing, and secure cookies.
+- **🤖 AI Integration**: Powered by `@openrouter/sdk` for generating intelligent responses.
+- **🗄️ Robust Database**: PostgreSQL database for storing users, chats, and messages.
+- **🛡️ Security**: API security with `helmet` and `cors`.
+- **✅ Input Validation**: Request payload validation using `zod`.
+- **📊 Logging**: Structured logging with `pino` and `morgan`.
+- **📈 Token Tracking**: Tracks and limits token usage for users and chats.
+- **📝 Chat Summarization**: Auto-summarization of chat topics.
 
 ---
 
