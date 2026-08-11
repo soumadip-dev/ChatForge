@@ -1,4 +1,5 @@
 import { pool } from '../lib/db.lib';
+import type { ChatTokenUsage } from '../types/chat.types';
 import type { Message } from '../types/message.types';
 
 export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
@@ -36,20 +37,34 @@ export async function createMessage(
   userId: string,
   chatId: string,
   role: Message['role'],
-  content: string
+  content: string,
+  usage?: ChatTokenUsage
 ): Promise<Message> {
   const query = `
     INSERT INTO messages (
       user_id,
       chat_id,
       role,
-      content
+      content,
+      tokens,
+      prompt_tokens,
+      completion_tokens,
+      total_tokens
     )
-    VALUES ($1, $2, $3, $4)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *;
   `;
 
-  const result = await pool.query<Message>(query, [userId, chatId, role, content]);
+  const result = await pool.query<Message>(query, [
+    userId,
+    chatId,
+    role,
+    content,
+    usage?.totalTokens ?? 0,
+    usage?.promptTokens ?? 0,
+    usage?.completionTokens ?? 0,
+    usage?.totalTokens ?? 0,
+  ]);
 
   return result.rows[0]!;
 }

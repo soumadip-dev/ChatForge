@@ -124,7 +124,7 @@ export async function sendMessageService({ userId, chatId, model, content }: Sen
   // 10. Save assistant message
   // --------------------------------------------------
 
-  const assistantMessage = await createMessage(userId, chat.id, 'assistant', aiResponse);
+  const assistantMessage = await createMessage(userId, chat.id, 'assistant', aiResponse, usage);
 
   // --------------------------------------------------
   // 11. Two messages were created
