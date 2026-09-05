@@ -1,7 +1,7 @@
-import { openRouter } from '../config/openRouter.config';
+import { createGeminiModel } from '../config/gemini.config';
+import { BaseMessage } from '@langchain/core/messages';
 
-type ChatRequest = Parameters<typeof openRouter.chat.send>[0]['chatRequest'];
-export type ChatMessages = ChatRequest['messages'];
+export type ChatMessages = BaseMessage[];
 
 interface GenerateAIResponseParams {
   model: string;
@@ -21,32 +21,24 @@ export const generateAIResponse = async ({
   model,
   messages,
 }: GenerateAIResponseParams): Promise<GenerateAIResponseResult> => {
-  const response = await openRouter.chat.send({
-    chatRequest: {
-      model,
-      messages,
-      stream: false,
-    },
-  });
+  const gemini = createGeminiModel(model);
 
-  if (!('choices' in response)) {
-    throw new Error('Expected a non-streaming chat completion response');
-  }
+  const response = await gemini.invoke(messages);
 
-  const content = response.choices[0]?.message?.content;
+  const aiResponse =
+    typeof response.content === 'string'
+      ? response.content
+      : response.content.map(item => ('text' in item ? item.text : '')).join('');
 
-  if (!content) {
+  if (!aiResponse) {
     throw new Error('AI response is empty');
   }
 
-  const aiResponse =
-    typeof content === 'string'
-      ? content
-      : content.map(item => ('text' in item ? item.text : '')).join('');
+  const usageMetadata = response.usage_metadata;
 
-  const promptTokens = response.usage?.promptTokens ?? 0;
-  const completionTokens = response.usage?.completionTokens ?? 0;
-  const totalTokens = response.usage?.totalTokens ?? 0;
+  const promptTokens = usageMetadata?.input_tokens ?? 0;
+  const completionTokens = usageMetadata?.output_tokens ?? 0;
+  const totalTokens = usageMetadata?.total_tokens ?? 0;
 
   return {
     aiResponse,

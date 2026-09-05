@@ -1,3 +1,5 @@
+import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
+
 import { updateChatSummary, updateChatTokens } from '../repositories/chat.repository';
 import { getMessagesForSummary } from '../repositories/message.repository';
 import {
@@ -50,29 +52,20 @@ export const buildMessagesForAI = ({
   oldMessages: Message[];
   currentMessage: string;
 }): ChatMessages => {
-  const messages: ChatMessages = [
-    {
-      role: 'system',
-      content: SYSTEM_PROMPT,
-    },
-  ];
+  const messages: ChatMessages = [new SystemMessage(SYSTEM_PROMPT)];
   if (chat.summary && chat.summary.trim() !== '') {
-    messages.push({
-      role: 'system',
-      content: `Previous conversation summary: \n${chat.summary}`,
-    });
+    messages.push(new SystemMessage(`Previous conversation summary:\n${chat.summary}`));
   }
-  for (const msg of oldMessages) {
-    messages.push({
-      role: msg.role,
-      content: msg.content,
-    });
-  }
-  messages.push({
-    role: 'user',
-    content: currentMessage,
-  });
 
+  for (const msg of oldMessages) {
+    if (msg.role === 'user') {
+      messages.push(new HumanMessage(msg.content));
+    } else if (msg.role === 'assistant') {
+      messages.push(new AIMessage(msg.content));
+    }
+  }
+
+  messages.push(new HumanMessage(currentMessage));
   return messages;
 };
 
@@ -125,23 +118,19 @@ export const updateSummaryIfNeeded = async (chatId: string, userId: string) => {
   if (messagesToSummarize.length === 0) return;
 
   const summaryMessages: ChatMessages = [
-    {
-      role: 'system',
-      content: SUMMARY_SYSTEM_PROMPT,
-    },
-    {
-      role: 'user',
-      content: `Previous summary: ${chat.summary || 'No previous summary yet.'}`,
-    },
-    ...messagesToSummarize.map((msg: Message) => ({
-      role: msg.role,
-      content: msg.content,
-    })),
-    {
-      role: 'user',
-      content: 'Summarize the above conversation.',
-    },
+    new SystemMessage(SUMMARY_SYSTEM_PROMPT),
+    new HumanMessage(`Previous summary: ${chat.summary || 'No previous summary yet.'}`),
   ];
+
+  for (const msg of messagesToSummarize) {
+    if (msg.role === 'user') {
+      summaryMessages.push(new HumanMessage(msg.content));
+    } else if (msg.role === 'assistant') {
+      summaryMessages.push(new AIMessage(msg.content));
+    }
+  }
+
+  summaryMessages.push(new HumanMessage('Summarize the above conversation.'));
 
   const { aiResponse, usage } = await generateAIResponse({
     model: chat.model,

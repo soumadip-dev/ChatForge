@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
+import { ALLOWED_MODELS } from '../constants/model.constant';
 import { logger } from '../lib/logger.lib';
 import {
   createChatService,
@@ -6,6 +8,8 @@ import {
   getChatByIdService,
   getRecentChatsService,
 } from '../services/chat.service';
+
+const modelSchema = z.enum(ALLOWED_MODELS);
 
 //* Get the most recent 20 chats for a user
 export const getRecentChats = async (
@@ -41,13 +45,21 @@ export const createChat = async (
 ): Promise<void> => {
   try {
     const { model } = req.body;
+
     const userId = req.user!.id;
 
     if (!model) {
       next(new Error('Model is required'));
       return;
     }
-
+    const modelValidation = modelSchema.safeParse(model);
+    if (!modelValidation.success) {
+      res.status(400).json({
+        success: false,
+        message: `Invalid model. Allowed models are: ${ALLOWED_MODELS.join(', ')}`,
+      });
+      return;
+    }
     logger.info(`Creating chat for user: ${userId}`);
 
     const chat = await createChatService(userId, model);

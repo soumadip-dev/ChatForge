@@ -18,7 +18,7 @@ import {
   hasTokenLimitReached,
   buildMessagesForAI,
   updateSummaryIfNeeded,
-} from '../lib/openrouter.lib';
+} from '../lib/gemini.lib';
 
 import { generateAIResponse } from './ai.service';
 

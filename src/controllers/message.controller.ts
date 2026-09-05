@@ -1,8 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 
+import { ALLOWED_MODELS } from '../constants/model.constant';
 import { logger } from '../lib/logger.lib';
 import { getMessagesService, sendMessageService } from '../services/message.service';
+
+const modelSchema = z.enum(ALLOWED_MODELS);
 
 //* Get all messages for a chat
 export const getMessages = async (
@@ -77,6 +80,16 @@ export const sendMessage = async (
         message: 'Model is required for new chat',
       });
       return;
+    }
+    if (model) {
+      const modelValidation = modelSchema.safeParse(model);
+      if (!modelValidation.success) {
+        res.status(400).json({
+          success: false,
+          message: `Invalid model. Allowed models are: ${ALLOWED_MODELS.join(', ')}`,
+        });
+        return;
+      }
     }
 
     if (chatId) {

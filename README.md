@@ -13,7 +13,9 @@
 ## 🔋 Features
 
 - **🔐 Authentication & Authorization**: Secure user registration and login using JWT, bcrypt for password hashing, and secure cookies.
-- **🤖 AI Integration**: Powered by `@openrouter/sdk` for generating intelligent responses.
+
+* **🤖 AI Integration**: Powered by the **Google Gemini API** through `LangChain` for generating intelligent responses.
+
 - **🗄️ Robust Database**: PostgreSQL database for storing users, chats, and messages.
 - **🛡️ Security**: API security with `helmet` and `cors`.
 - **✅ Input Validation**: Request payload validation using `zod`.
