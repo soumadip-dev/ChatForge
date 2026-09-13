@@ -2,14 +2,12 @@
 // express related logic
 import express from 'express';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import { configCors } from './config/cors.config';
-
 import { NotFound } from './middlewares/notFound.middleware';
 import { errorHandler } from './middlewares/errorhandler.middleware';
-
 import { apiRouter } from './routes';
-import cookieParser from 'cookie-parser';
 
 export function createApp() {
   const app = express();
@@ -17,7 +15,6 @@ export function createApp() {
   app.use(configCors());
   app.use(helmet());
   app.use(cookieParser());
-
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 

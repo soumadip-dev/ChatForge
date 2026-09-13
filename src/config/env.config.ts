@@ -23,6 +23,7 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('1h'),
   OPENROUTER_API_KEY: z.string().default(''),
   GEMINI_API_KEY: z.string().default(''),
+  REDIS_URL: z.string().default(''),
 });
 
 export const env = envSchema.parse(process.env);
