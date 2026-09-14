@@ -5,7 +5,6 @@
 
 import { Router } from 'express';
 
-import { validate } from '../middlewares/validate.middleware';
 import {
   createChat,
   deleteChat,

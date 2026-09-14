@@ -18,7 +18,7 @@ export async function authenticate(
     const blockedToken = await redisClient.get(`blocklist:${token}`);
 
     if (blockedToken) {
-      logger.info(`Token blocked: ${token}`);
+      logger.info('Token blocked');
       return next(new AppError(401, 'Please login again'));
     }
 

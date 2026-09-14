@@ -19,13 +19,8 @@ authRouter.post(
   register
 );
 authRouter.post('/login', unauthenticatedRateLimiterMiddleware, validate(loginSchema), login);
-authRouter.post(
-  '/logout',
-  authenticateToken,
-  authenticatedRateLimiterMiddleware,
-  authenticateUser,
-  logout
-);
+
+authRouter.post('/logout', authenticateToken, authenticatedRateLimiterMiddleware, logout);
 
 authRouter.get(
   '/profile',
