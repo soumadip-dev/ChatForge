@@ -11,19 +11,14 @@ import {
   getMessagesForAI,
 } from '../repositories/message.repository';
 
-import { findUserById, incrementUserTokenUsage } from '../repositories/user.repository';
+import { incrementUserTotalTokenUsage } from '../repositories/user.repository';
 
-import {
-  resetUsageIfNeeded,
-  hasTokenLimitReached,
-  buildMessagesForAI,
-  updateSummaryIfNeeded,
-} from '../lib/gemini.lib';
+import { buildMessagesForAI, updateSummaryIfNeeded } from '../lib/gemini.lib';
+import { incrementTokenUsage } from '../lib/token-usage.lib';
 
 import { generateAIResponse } from './ai.service';
 
 import { logger } from '../lib/logger.lib';
-import { AppError } from '../errors/AppError';
 
 interface SendMessageInput {
   userId: string;
@@ -61,21 +56,6 @@ export async function sendMessageService({ userId, chatId, model, content }: Sen
     chat = await createChat(userId, topic, model!);
   }
 
-  // Get the user from the database.
-  const user = await findUserById(userId);
-
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // Reset the user's token usage if the current 5-hour usage period has expired.
-  await resetUsageIfNeeded(user);
-
-  // Check whether the user has reached their token usage limit.
-  if (hasTokenLimitReached(user)) {
-    throw new AppError(400, 'Token limit reached. Please try after some time.');
-  }
-
   // Get previous messages that have not been included in the chat summary yet.
   const oldMessages = await getMessagesForAI(chat.id, chat.summarized_till_message_number);
 
@@ -92,6 +72,9 @@ export async function sendMessageService({ userId, chatId, model, content }: Sen
     model: chat.model,
     messages: messagesForAI,
   });
+
+  // update current token-window usage in redis
+  await incrementTokenUsage(userId, usage.totalTokens);
 
   // Save the user's message to the database.
   const userMessage = await createMessage(userId, chat.id, 'user', content);
@@ -120,7 +103,7 @@ export async function sendMessageService({ userId, chatId, model, content }: Sen
   await updateChatTokens(chat.id, usage);
 
   // Add the AI's total token usage to the user's current and lifetime usage.
-  await incrementUserTokenUsage(userId, usage.totalTokens);
+  await incrementUserTotalTokenUsage(userId, usage.totalTokens);
 
   // Update the chat summary in the background when at least 10 messages are unsummarized.
   updateSummaryIfNeeded(chat.id, userId).catch(error => {

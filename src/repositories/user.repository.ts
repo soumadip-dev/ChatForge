@@ -74,24 +74,13 @@ export async function deleteUser(id: string): Promise<void> {
   await pool.query(query, [id]);
 }
 
-export async function resetUserTokenUsage(userId: string, resetAt: Date): Promise<void> {
+export async function incrementUserTotalTokenUsage(
+  userId: string,
+  totalTokens: number
+): Promise<void> {
   const query = `
     UPDATE users
     SET
-      token_used = 0,
-      reset_at = $2,
-      updated_at = NOW()
-    WHERE id = $1;
-  `;
-
-  await pool.query(query, [userId, resetAt]);
-}
-
-export async function incrementUserTokenUsage(userId: string, totalTokens: number): Promise<void> {
-  const query = `
-    UPDATE users
-    SET
-      token_used = token_used + $2,
       total_token_used = total_token_used + $2,
       updated_at = NOW()
     WHERE id = $1;

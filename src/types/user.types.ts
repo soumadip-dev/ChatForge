@@ -4,9 +4,6 @@ export type User = {
   name: string;
   age: number;
   email: string;
-  token_used: number;
-  token_limit: number;
-  reset_at: Date;
   total_token_used: number;
   created_at: Date;
   updated_at: Date;
@@ -18,9 +15,6 @@ export type DBUserRow = {
   name: string;
   age: number;
   email: string;
-  token_used?: number;
-  token_limit?: number;
-  reset_at?: Date;
   total_token_used?: number;
   created_at: Date;
   updated_at: Date;

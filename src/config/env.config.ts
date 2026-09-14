@@ -24,6 +24,8 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().default(''),
   GEMINI_API_KEY: z.string().default(''),
   REDIS_URL: z.string().default(''),
+  TOKEN_LIMIT: z.coerce.number().positive(),
+  TOKEN_WINDOW_SECONDS: z.coerce.number().positive(),
 });
 
 export const env = envSchema.parse(process.env);

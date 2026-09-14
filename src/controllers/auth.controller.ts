@@ -3,7 +3,8 @@ import { deleteUserService, loginUserService, registerUserService } from '../ser
 import { cookieOptions } from '../config/cookie.config';
 import { logger } from '../lib/logger.lib';
 import { redisClient } from '../config/redis.config';
-import util from 'util';
+import { getTokenUsage } from '../lib/token-usage.lib';
+import { env } from '../config/env.config';
 
 //* Register a new user
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -42,21 +43,22 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const { accessToken, user } = await loginUserService({ email, password });
 
+    const tokenUsed = await getTokenUsage(user.id);
+
     res.cookie('accessToken', accessToken, cookieOptions);
 
     logger.info(`User logged in successfully: ${email}`);
 
     res.status(200).json({
-      succes: true,
+      success: true,
       message: 'User logged in successfully',
       data: {
         name: user.name,
         age: user.age,
         email: user.email,
         usage: {
-          tokenUsed: user.token_used,
-          tokenLimit: user.token_limit,
-          resetAt: user.reset_at,
+          tokenUsed,
+          tokenLimit: env.TOKEN_LIMIT,
           totalTokenUsed: user.total_token_used,
         },
       },
@@ -103,17 +105,18 @@ export const profile = async (req: Request, res: Response, next: NextFunction) =
   try {
     logger.info(`Profile fetched for user: ${req.user.email}`);
 
+    const tokenUsed = await getTokenUsage(req.user.id);
+
     res.status(200).json({
-      succes: true,
+      success: true,
       message: 'User profile fetched successfully',
       data: {
         name: req.user.name,
         age: req.user.age,
         email: req.user.email,
         usage: {
-          tokenUsed: req.user.token_used,
-          tokenLimit: req.user.token_limit,
-          resetAt: req.user.reset_at,
+          tokenUsed,
+          tokenLimit: env.TOKEN_LIMIT,
           totalTokenUsed: req.user.total_token_used,
         },
       },
