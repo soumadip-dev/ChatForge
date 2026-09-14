@@ -13,7 +13,7 @@ export async function authenticatedRateLimiterMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = req.user.id;
+    const userId = req.tokenpayload.id;
     const rateLimitKey = `rate_limit:authenticated:${userId}`;
 
     // Increment the request count for this authenticated user.
