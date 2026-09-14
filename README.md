@@ -1,7 +1,7 @@
 <h1 align="center">ChatForge 🤖</h1>
 
 <p align="center">
-  An AI-powered conversational platform built with the MERN stack, featuring real-time streaming responses, chat history, authentication.
+  An AI-powered conversational platform built with TypeScript and Express, featuring Google Gemini, LangChain, PostgreSQL, Redis, authentication, chat history, rate limiting, and automatic conversation summarization.
 </p>
 
 <div align="center">
@@ -12,94 +12,89 @@
 
 ## 🔋 Features
 
-- **🔐 Authentication & Authorization**: Secure user registration and login using JWT, bcrypt for password hashing, and secure cookies.
-
-* **🤖 AI Integration**: Powered by the **Google Gemini API** through `LangChain` for generating intelligent responses.
-
-- **🗄️ Robust Database**: PostgreSQL database for storing users, chats, and messages.
-- **🛡️ Security**: API security with `helmet` and `cors`.
-- **✅ Input Validation**: Request payload validation using `zod`.
-- **📊 Logging**: Structured logging with `pino` and `morgan`.
-- **📈 Token Tracking**: Tracks and limits token usage for users and chats.
-- **📝 Chat Summarization**: Auto-summarization of chat topics.
+- **🔐 Authentication & Authorization** — JWT authentication with bcrypt password hashing, HTTP-only cookies, and Redis-based JWT blocklisting.
+- **🤖 AI Integration** — Google Gemini API through LangChain.
+- **💬 Chat System** — Create chats, send messages, and retrieve chat history.
+- **🗄️ PostgreSQL** — Stores users, chats, messages, summaries, and lifetime token usage.
+- **⚡ Redis** — Token-window usage tracking, rate limiting, and JWT blocklisting.
+- **📊 Token Tracking** — Tracks token usage for users and individual chats.
+- **⏱️ Token Limits** — Configurable token limits with automatic time-based reset using Redis.
+- **📝 Chat Summarization** — Automatically summarizes conversations to maintain useful context.
+- **🚦 Rate Limiting** — Separate rate limiting for authenticated and unauthenticated requests.
+- **✅ Validation & Security** — Zod validation, Helmet, CORS, and structured logging.
 
 ---
 
 # ⚙️ Tech Stack
 
-## 🛠 Backend
+### Backend
 
 - Bun
 - Express.js
 - TypeScript
+- LangChain
 
-## 🗄 Database
+### AI
+
+- Google Gemini
+
+### Database & Infrastructure
 
 - PostgreSQL
-- pg (node-postgres)
+- Redis
+- Docker & Docker Compose
 
-## 📦 Other Tools
+### Authentication & Security
 
-- dotenv
+- JWT
+- bcrypt
+- Zod
+- Helmet
 - CORS
-- Logging middleware (pino)
+
+### Other
+
+- Pino
+- dotenv
 
 ---
 
-# 🤸 Installation
+# 📊 Token Usage
 
-## 1. Clone the Repository
+ChatForge uses Redis for temporary token-window usage and PostgreSQL for lifetime usage.
 
-```bash
-git clone https://github.com/soumadip-dev/ChatForge.git
+```text
+Redis
+└── Current token window
+    └── TOKEN_LIMIT
+        └── TOKEN_WINDOW_SECONDS
 
-cd ChatForge
+PostgreSQL
+└── total_token_used
+    └── Lifetime usage
 ```
 
-## 2. Install Dependencies
-
-```bash
-bun install
-```
-
-## 3. Configure Environment Variables
-
-Create a `.env` file in the project root.
+Example configuration:
 
 ```env
-PORT=8080
-NODE_ENV=development
-
-DATABASE_URL=<your-postgresql-url>
-
-LOG_LEVEL=info
-
-CORS_ORIGINS=<your-frontend-url>
+TOKEN_LIMIT=10000
+TOKEN_WINDOW_SECONDS=18000
 ```
 
-## 4. Run the Development Server
-
-```bash
-bun run dev
-```
+This allows **10,000 tokens per 5-hour window**.
 
 ---
 
 # 🗄️ Database Schema
 
-## Entity Relationship Diagram (ERD)
-
 ```text
                      USERS
      +-------------------------------+
-     | PK user_id                    |
+     | id                            |
      | name                          |
      | age                           |
-     | email (UNIQUE)                |
+     | email                         |
      | password                      |
-     | token_used                    |
-     | token_limit                   |
-     | reset_at                      |
      | total_token_used              |
      | created_at                    |
      | updated_at                    |
@@ -111,13 +106,12 @@ bun run dev
                      ▼
                      CHATS
      +-------------------------------+
-     | PK chat_id                    |
-     | FK user_id                    |
+     | id                            |
+     | user_id                       |
      | topic                         |
      | model                         |
      | summary                       |
-     | summary_updated_at            |
-     | summarized_till_message       |
+     | summarized_till_message_number|
      | message_count                 |
      | prompt_tokens                 |
      | completion_tokens             |
@@ -132,19 +126,21 @@ bun run dev
                      ▼
                   MESSAGES
      +-------------------------------+
-     | PK message_id                 |
-     | FK user_id                    |
-     | FK chat_id                    |
+     | id                            |
+     | user_id                       |
+     | chat_id                       |
      | role                          |
      | content                       |
      | tokens                        |
      | prompt_tokens                 |
-     | completion_tokens             |
+     | completion_tokens              |
      | total_tokens                  |
      | created_at                    |
      | updated_at                    |
      +-------------------------------+
 ```
+
+---
 
 # 🔗 Database Relationships
 
@@ -155,19 +151,21 @@ Each user can create multiple chat sessions.
 ### Example
 
 ```text
-Aman
+User
 ├── Chat 1 (Recursion)
 ├── Chat 2 (Linked List)
 └── Chat 3 (Operating System)
 ```
 
-Relationship
+Relationship:
 
 ```text
 User (1)
     │
     └──────────< Chats (N)
 ```
+
+---
 
 ## 2. One Chat → Many Messages
 
@@ -184,7 +182,7 @@ Chat
 └── AI   : Sure...
 ```
 
-Relationship
+Relationship:
 
 ```text
 Chat (1)
@@ -192,11 +190,13 @@ Chat (1)
     └──────────< Messages (N)
 ```
 
+---
+
 ## 3. One User → Many Messages
 
-Although every message belongs to a chat, storing the `user_id` in the `messages` table allows efficient retrieval of all messages created by a specific user without requiring an additional join with the `chats` table.
+Although every message belongs to a chat, storing the `user_id` in the `messages` table allows efficient retrieval of messages belonging to a specific user without requiring an additional join with the `chats` table.
 
-Relationship
+Relationship:
 
 ```text
 User (1)
@@ -204,29 +204,31 @@ User (1)
     └──────────< Messages (N)
 ```
 
+---
+
 # ⚡ Database Indexes
 
-## Chats Index
+### Chats
 
-Optimizes retrieval of a user's most recently active chats.
+Optimizes retrieval of a user's most recently updated chats.
 
 ```sql
 CREATE INDEX idx_chats_user_updated
 ON chats(user_id, updated_at DESC);
 ```
 
-## Messages Index (Chat History)
+### Messages — Chat History
 
-Optimizes loading all messages in a chat in chronological order.
+Optimizes loading messages from a specific chat in chronological order.
 
 ```sql
 CREATE INDEX idx_messages_chat_created
 ON messages(chat_id, created_at);
 ```
 
-## Messages Index (User History)
+### Messages — User History
 
-Optimizes retrieval of all messages belonging to a specific user.
+Optimizes retrieval of messages belonging to a specific user.
 
 ```sql
 CREATE INDEX idx_messages_user_created
@@ -235,20 +237,72 @@ ON messages(user_id, created_at DESC);
 
 ---
 
+# 🐳 Installation
+
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/soumadip-dev/ChatForge.git
+
+cd ChatForge
+```
+
+## 2. Install Dependencies
+
+```bash
+bun install
+```
+
+## 3. Start PostgreSQL & Redis
+
+```bash
+docker compose up -d --build
+```
+
+## 4. Configure Environment Variables
+
+Create a `.env` file:
+
+```env
+PORT=8080
+NODE_ENV=development
+
+DATABASE_URL=<your-postgresql-url>
+
+LOG_LEVEL=info
+CORS_ORIGINS=<your-frontend-url>
+
+JWT_SECRET=<your-jwt-secret>
+JWT_ACCESS_EXPIRES_IN=1h
+
+GEMINI_API_KEY=<your-gemini-api-key>
+REDIS_URL=<your-redis-url>
+
+TOKEN_LIMIT=10000
+TOKEN_WINDOW_SECONDS=18000
+```
+
+## 5. Run Migrations
+
+```bash
+bun run migrate
+```
+
+## 6. Start Development Server
+
+```bash
+bun run dev
+```
+
+---
+
 # 📜 Available Scripts
 
 ```bash
-# Start development server
-bun run dev
-
-# Run database migrations
-bun run migrate
-
-# Start production server
-bun run start
-
-# Build production bundle
-bun run build
+bun run dev       # Start development server
+bun run migrate   # Run database migrations
+bun run build     # Build production bundle
+bun run start     # Start production server
 ```
 
 ---
