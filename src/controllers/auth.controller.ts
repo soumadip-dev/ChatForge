@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { deleteUserService, loginUserService, registerUserService } from '../services/auth.service';
 import { cookieOptions } from '../config/cookie.config';
 import { logger } from '../lib/logger.lib';
+import { redisClient } from '../config/redis.config';
+import util from 'util';
 
 //* Register a new user
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -69,6 +71,18 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info(`Logout attempt for user: ${req.user?.email}`);
+
+    const token = req.token;
+    const payload = req.tokenpayload;
+
+    if (token && payload?.exp) {
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+      const remainingTtl = payload.exp - nowInSeconds;
+
+      if (remainingTtl > 0) {
+        await redisClient.SETEX(`blocklist:${token}`, remainingTtl, 'blocked');
+      }
+    }
 
     res.clearCookie('accessToken', cookieOptions);
 

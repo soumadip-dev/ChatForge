@@ -3,6 +3,7 @@ import { AppError } from '../errors/AppError';
 import { verifyToken } from '../lib/jwt.lib';
 import { findUserById } from '../repositories/user.repository';
 import { logger } from '../lib/logger.lib';
+import { redisClient } from '../config/redis.config';
 
 export async function authenticate(
   req: Request,
@@ -14,6 +15,13 @@ export async function authenticate(
 
     const payload = verifyToken(token);
 
+    const blockedToken = await redisClient.get(`blocklist:${token}`);
+
+    if (blockedToken) {
+      logger.info(`Token blocked: ${token}`);
+      return next(new AppError(401, 'Please login again'));
+    }
+
     const existingUser = await findUserById(payload.id);
 
     if (!existingUser) {
@@ -21,6 +29,8 @@ export async function authenticate(
     }
 
     req.user = existingUser;
+    req.token = token;
+    req.tokenpayload = payload;
 
     return next();
   } catch (error) {

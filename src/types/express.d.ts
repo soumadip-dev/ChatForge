@@ -1,9 +1,11 @@
-import { TokenPayload } from './user';
+import { TokenPayload, User } from './user';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: TokenPayload;
+      user?: User;
+      token?: string;
+      tokenpayload?: TokenPayload;
     }
   }
 }
